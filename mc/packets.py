@@ -1,5 +1,27 @@
 import struct
 
+ 
+def pack(packet):
+  result = struct.pack("!B", packet.id)
+  for d in packet.get_datatable():
+    attr = getattr(packet, d[1], None)
+    if(d[0]=="S"):
+      attr = "" if attr is None else attr
+      utf16_attr = attr.encode("utf_16_be")
+      result += struct.pack("!h", len(attr))
+      result += struct.pack("!{}s".format(len(utf16_attr)), utf16_attr)
+    elif(d[0]=="T"):
+      raise NotImplementedError
+    else:
+      attr = 0 if attr is None else attr
+      result += struct.pack("!{}".format(d[0]), attr)
+  return result
+  
+def unpack(rawstring, direction):
+  # 1. find all class in this module, match id.
+  # 2. unpack data with specific data table.
+  pass
+
 
 class packet(object):
   id = -1
@@ -13,21 +35,7 @@ class packet(object):
 
   def get_datatable(self):
     return getattr(self.__class__, "data_{}".format(self.direction))
-
-  def pack(self):
-    result = struct.pack("!B", self.id)
-    for d in self.get_datatable():
-      attr = getattr(self, d[1], None)
-      if(d[0]=="S"):
-        attr = "" if attr is None else attr
-        utf16_attr = attr.encode("utf_16_be")
-        result += struct.pack("!h", len(attr))
-        result += struct.pack("!{}s".format(len(utf16_attr)), utf16_attr)
-      else:
-        attr = 0 if attr is None else attr
-        result += struct.pack("!{}".format(d[0]), attr)
-    return result
-
+  
 
 class keep_alive(packet):
   id = 0x00
@@ -81,6 +89,155 @@ class entity_equipment(packet):
       ("h", "slot"),
       ("h", "item_id"),
       ("h", "damage"),
+  )
+
+
+class spawn_position(packet):
+  id = 0x06
+  data_s2c = (
+      ("i", "x"),
+      ("i", "y"),
+      ("i", "z"),
+  )
+
+
+class use_entity(packet):
+  id = 0x07
+  data_c2s = (
+      ("i", "user"),
+      ("i", "target"),
+      ("?", "mouse_button"),
+  )
+
+
+class update_health(packet):
+  id = 0x08
+  data_s2c = (
+      ("h", "health"),
+      ("h", "food"),
+      ("f", "food_saturation"),
+  )
+
+
+class respawn(packet):
+  id = 0x09
+  data_c2s = data_s2c = (
+      ("i", "dimension"),
+      ("b", "difficulty"),
+      ("b", "creative_mode"),
+      ("h", "world_height"),
+      ("S", "level_type"),
+  )
+
+
+class player(packet):
+  id = 0x0A
+  data_c2s = (("?", "on_ground"), )
+
+
+class player_position(player):
+  id = 0x0B
+  data_c2s = (
+      ("d", "x"),
+      ("d", "y"),
+      ("d", "stance"),
+      ("d", "z"),
+  ) + player.data_c2s
+
+
+class player_look(player):
+  id = 0x0C
+  data_c2s = (
+      ("f", "yaw"),
+      ("f", "pitch"),
+  ) + player.data_c2s
+
+
+class player_position_look(player):
+  id = 0x0D
+  data_c2s = (
+      ("d", "x"),
+      ("d", "y"),
+      ("d", "stance"),
+      ("d", "z"),
+      ("f", "yaw"),
+      ("f", "pitch"),
+  ) + player.data_c2s
+  data_s2c = (
+      ("d", "x"),
+      ("d", "stance"),
+      ("d", "y"),
+      ("d", "z"),
+      ("f", "yaw"),
+      ("f", "pitch"),
+  ) + player.data_c2s
+
+
+class player_digging(packet):
+  id = 0x0E
+  data_c2s = (
+      ("b", "status"),
+      ("i", "x"),
+      ("b", "y"),
+      ("i", "z"),
+      ("b", "face"),
+  )
+
+
+class player_block_placement(packet):
+  id = 0x0F
+  data_c2s = (
+      ("i", "x"),
+      ("b", "y"),
+      ("i", "z"),
+      ("b", "direction"),
+      ("T", "held_item"),
+  )
+
+
+class held_item_change(packet):
+  id = 0x10
+  data_c2s = (("h", "slot_id"), )
+
+
+class use_bed(packet):
+  id = 0x11
+  data_s2c = (
+      ("i", "entity_id"),
+      ("b", ""), # unknown
+      ("i", "x"),
+      ("b", "y"),
+      ("i", "z"),
+  )
+
+
+class animation(packet):
+  id = 0x12
+  data_c2s = data_s2c = (
+      ("i", "eid"),
+      ("b", "animation"),
+  )
+
+
+class entity_action(packet):
+  id = 0x13
+  data_c2s = (
+      ("i", "eid"),
+      ("b", "action_id"),
+  )
+
+
+class spawn_named_entity(packet):
+  id = 0x14
+  data_s2c = (
+      ("i", "eid"),
+      ("S", "player_name"),
+      ("i", "x"),
+      ("i", "y"),
+      ("i", "z"),
+      ("b", "yaw"),
+      ("b", "pitch"),
+      ("h", "current_item"),
   )
 
 ###############
