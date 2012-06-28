@@ -247,6 +247,33 @@ class spawn_named_entity(packet):
 
 ###############
 
+class increment_statistic(packet):
+  id = 0xC8
+  data_s2c = (
+      ("i", "statistic_id"),
+      ("b", "amount"),
+  )
+
+
+class player_list_item(packet):
+  id = 0xC9
+  data_s2c = (
+      ("S", "player_name"),
+      ("?", "online"),
+      ("h", "ping"),
+  )
+
+
+class player_abilities(packet):
+  id = 0xCA
+  data_c2s = data_s2c = (
+      ("?", "invulnerabile"),
+      ("?", "flying"),
+      ("?", "flyable"),
+      ("?", "instant_destroy"),
+  )
+
+
 class plugin_message(packet):
   id = 0xFA
   data_c2s = data_s2c = (
