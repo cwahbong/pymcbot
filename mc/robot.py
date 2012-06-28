@@ -11,13 +11,13 @@ class robot(object):
 
   def login(self, host, port, user, password=""):
     self.socket.connect((host, port))
-    self.socket.send(handshake("c2s", username_host="{};{}:{}".format(user, host, port)).pack())
+    self.socket.send(pack(handshake("c2s", username_host="{};{}:{}".format(user, host, port))))
     recv = self.socket.recv(1024)
-    self.socket.send(login_request("c2s", version=29, username=user).pack())
+    self.socket.send(pack(login_request("c2s", version=29, username=user)))
     recv = self.socket.recv(1024)
 
   def logout(self, message=""):
-    self.socket.send(disconnect("c2s", reason=message).pack())
+    self.socket.send(pack(disconnect("c2s", reason=message)))
     self.socket.close()
 
   def getPosition(self):
