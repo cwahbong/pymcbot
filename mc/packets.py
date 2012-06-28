@@ -5,7 +5,7 @@ def pack(packet):
   result = struct.pack("!B", packet.id)
   for d in packet.get_datatable():
     attr = getattr(packet, d[1], None)
-    if d[0] in ("ba", "Ba", "Ta"): # byte array
+    if d[0] in ("ba", "Ba", "Ta"): # array
       raise NotImplementedError
     if d[0]=="S": # utf 16 be string
       attr = "" if attr is None else attr
@@ -13,6 +13,8 @@ def pack(packet):
       result += struct.pack("!h", len(attr))
       result += struct.pack("!{}s".format(len(utf16_attr)), utf16_attr)
     elif d[0]=="T": # slot
+      raise NotImplementedError
+    elif d[0]=='M': # metadata
       raise NotImplementedError
     elif d[0] in "bB?hHiIlLfd":
       attr = 0 if attr is None else attr
@@ -59,7 +61,7 @@ class login_request(packet):
       ("B", ""),
   )
   data_s2c = (
-      ("i", "entity_id"),
+      ("i", "eid"),
       ("S", ""),
       ("S", "level_type"),
       ("i", "server_mode"),
@@ -83,13 +85,13 @@ class chat_message(packet):
 
 class time_update(packet):
   id = 0x04
-  data_c2s = data_s2c = (("l", "time"), )
+  data_c2s = data_s2c = (("q", "time"), )
 
 
 class entity_equipment(packet):
   id = 0x05
   data_s2c = (
-      ("i", "entity_id"),
+      ("i", "eid"),
       ("h", "slot"),
       ("h", "item_id"),
       ("h", "damage"),
@@ -207,7 +209,7 @@ class held_item_change(packet):
 class use_bed(packet):
   id = 0x11
   data_s2c = (
-      ("i", "entity_id"),
+      ("i", "eid"),
       ("b", ""), # unknown
       ("i", "x"),
       ("b", "y"),
@@ -244,6 +246,111 @@ class spawn_named_entity(packet):
       ("h", "current_item"),
   )
 
+
+class spawn_dropped_item(packet):
+  id = 0x15
+  data_s2c = (
+      ("i", "eid"),
+      ("h", "item"),
+      ("b", "count"),
+      ("h", "damage_data"),
+      ("i", "x"),
+      ("i", "y"),
+      ("i", "z"),
+      ("b", "rotation"),
+      ("b", "pitch"),
+      ("b", "roll"),
+  )
+
+
+class collect_item(packet):
+  id = 0x16
+  data_s2c = (
+      ("i", "collected_eid"),
+      ("i", "collector_eid"),
+  )
+
+
+class spawn_object_vehicle(packet):
+  id = 0x17
+  data_s2c = (
+      ("i", "eid"),
+      ("b", "type"),
+      ("i", "x"),
+      ("i", "y"),
+      ("i", "z"),
+      ("i", "fireball_thrower_eid"),
+      ("h", "sx"),
+      ("h", "sy"),
+      ("h", "sz"),
+  )
+
+
+class spawn_mob(packet):
+  id = 0x18
+  data_s2c = (
+      ("i", "eid"),
+      ("b", "bype"),
+      ("i", "x"),
+      ("i", "y"),
+      ("i", "z"),
+      ("b", "yaw"),
+      ("b", "pitch"),
+      ("b", "head_yaw"),
+      ("M", "metadata"),
+  )
+
+
+class spawn_painting(packet):
+  id = 0x19
+  data_s2c = (
+      ("i", "eid"),
+      ("S", "title"),
+      ("i", "x"),
+      ("i", "y"),
+      ("i", "z"),
+      ("i", "direction"),
+  )
+
+
+class spawn_experience_orb(packet):
+  id = 0x1A
+  data_s2c = (
+      ("i", "eid"),
+      ("i", "x"),
+      ("i", "y"),
+      ("i", "z"),
+      ("h", "count"),
+  )
+
+
+class entity_velocity(packet):
+  id = 0x1C
+  data_s2c = (
+      ("i", "eid"),
+      ("h", "vx"),
+      ("h", "vy"),
+      ("h", "vz"),
+  )
+
+
+class destroy_entity(packet):
+  id = 0x1D
+  data_s2c = (("i", "eid"), )
+
+
+class entity(packet):
+  id = 0x1E
+  data_s2c = (("i", "eid"), )
+
+
+class entity_relative_move(entity):
+  id = 0x1F
+  data_s2c = entity.data_s2c + (
+      ("b", "dx"),
+      ("b", "dy"),
+      ("b", "dz"),
+  )
 
 ###############
 
