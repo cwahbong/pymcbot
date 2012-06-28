@@ -352,6 +352,83 @@ class entity_relative_move(entity):
       ("b", "dz"),
   )
 
+
+class entity_look(entity):
+  id = 0x20
+  data_s2c = entity.data_s2c + (
+      ("b", "yaw"),
+      ("b", "pitch"),
+  )
+
+
+class entity_relative_move_look(entity):
+  id = 0x21
+  data_s2c = entity.data_s2c + entity_relative_move.data_s2c[1:] + entity_look.data_s2c[1:]
+
+
+class entity_teleport(entity):
+  id = 0x22
+  data_s2c = entity.data_s2c + (
+      ("i", "x"),
+      ("i", "y"),
+      ("i", "z"),
+      ("b", "yaw"),
+      ("b", "pitch"),
+  )
+
+
+class entity_head_look(entity):
+  id = 0x23
+  data_s2c = entity.data_s2c + (("b", "head_yaw"), )
+
+
+class entity_statys(entity):
+  id = 0x26
+  data_s2c = entity.data_s2c + (("b", "entity_status"), )
+
+
+class attach_entity(entity):
+  id = 0x27
+  data_s2c = entity.data_s2c + (("i", "vehical_id"), )
+
+
+class entity_metadata(entity):
+  id = 0x28
+  data_s2c = entity.data_s2c + (("M", "metadata"), )
+
+
+class entity_effect(entity):
+  id = 0x29
+  data_s2c = entity.data_s2c + (
+      ("b", "effect_id"),
+      ("b", "amplifier"),
+      ("h", "duration"),
+  )
+
+
+class remove_entity_effect(entity):
+  id = 0x2A
+  data_s2c = entity.data_s2c + (("b", "effect_id"), )
+
+
+class set_experience(packet):
+  id = 0x2B
+  data_s2c = (
+      ("f", "experience_bar"),
+      ("h", "level"),
+      ("h", "total_experience"),
+  )
+
+
+class map_column_allocation(packet):
+  id = 0x32
+  data_s2c = (
+      ("i", "x"),
+      ("i", "z"),
+      ("?", "mode"),
+  )
+
+
 ################
 
 class update_sign(packet):
