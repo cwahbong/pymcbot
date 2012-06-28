@@ -354,6 +354,42 @@ class entity_relative_move(entity):
 
 ################
 
+class update_sign(packet):
+  id = 0x82
+  data_c2s = data_s2c = (
+      ("i", "x"),
+      ("h", "y"),
+      ("i", "z"),
+      ("S", "text1"),
+      ("S", "text2"),
+      ("S", "text3"),
+      ("S", "text4"),
+  )
+
+
+class item_data(packet):
+  id = 0x83
+  data_s2c = (
+      ("h", "item_type"),
+      ("h", "item_id"),
+      ("B", "text_length"),
+      ("ba", "text"),
+  )
+
+
+class update_title_entity(packet):
+  id = 0x84
+  data_s2c = (
+      ("i", "x"),
+      ("h", "y"),
+      ("i", "z"),
+      ("b", "action"),
+      ("i", "custom1"),
+      ("i", "custom2"),
+      ("i", "custom3"),
+  )
+
+
 class increment_statistic(packet):
   id = 0xC8
   data_s2c = (
