@@ -5,16 +5,20 @@ def pack(packet):
   result = struct.pack("!B", packet.id)
   for d in packet.get_datatable():
     attr = getattr(packet, d[1], None)
-    if(d[0]=="S"):
+    if d[0] in ("ba", "Ba", "Ta"): # byte array
+      raise NotImplementedError
+    if d[0]=="S": # utf 16 be string
       attr = "" if attr is None else attr
       utf16_attr = attr.encode("utf_16_be")
       result += struct.pack("!h", len(attr))
       result += struct.pack("!{}s".format(len(utf16_attr)), utf16_attr)
-    elif(d[0]=="T"):
+    elif d[0]=="T": # slot
       raise NotImplementedError
-    else:
+    elif d[0] in "bB?hHiIlLfd":
       attr = 0 if attr is None else attr
       result += struct.pack("!{}".format(d[0]), attr)
+    else:
+      raise ValueError("Invalid data type '{}'".format(d[0]))
   return result
   
 def unpack(rawstring, direction):
@@ -240,7 +244,22 @@ class spawn_named_entity(packet):
       ("h", "current_item"),
   )
 
+
 ###############
+
+class plugin_message(packet):
+  id = 0xFA
+  data_c2s = data_s2c = (
+      ("S", "channel"),
+      ("h", "length"),
+      ("ba", "data") # byte array
+  )
+
+
+class server_list_ping(packet):
+  id = 0xFE
+  data_c2s = ()
+
 
 class disconnect(packet):
   id = 0xFF
