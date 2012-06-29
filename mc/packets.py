@@ -429,7 +429,173 @@ class map_column_allocation(packet):
   )
 
 
-################
+class map_chunks(packet):
+  id = 0x33
+  data_s2c = (
+      ("i", "x"),
+      ("i", "z"),
+      ("?", "ground_up_continuous"),
+      ("H", "primary_bit_map"),
+      ("H", "add_bit_map"),
+      ("i", "compressed_size"),
+      ("i", ""),
+      ("Ba", "compressed_data"),
+  )
+
+
+class multi_block_change(packet):
+  id = 0x34
+  data_s2c = (
+      ("i", "cx"),
+      ("i", "cz"),
+      ("h", "record_count"),
+      ("i", "data_size"),
+      ("ba", "data"),
+  )
+
+
+class block_change(packet):
+  id = 0x35
+  data_s2c = (
+      ("i", "x"),
+      ("b", "y"),
+      ("i", "z"),
+      ("b", "block_type"),
+      ("b", "block_metadata"),
+  )
+
+
+class block_action(packet):
+  id = 0x36
+  data_s2c = (
+      ("i", "x"),
+      ("h", "y"),
+      ("i", "z"),
+      ("b", "byte1"),
+      ("b", "byte2"),
+  )
+
+
+class explosion(packet):
+  id = 0x3C
+  data_s2c = (
+      ("d", "x"),
+      ("d", "y"),
+      ("d", "z"),
+      ("f", "radius"),
+      ("i", "record_count"),
+      ("ba", "records"),
+  )
+
+
+class sound_partical_effect(packet):
+  id = 0x3D
+  data_s2c = (
+      ("i", "eid"),
+      ("i", "x"),
+      ("b", "y"),
+      ("i", "z"),
+      ("i", "data"),
+  )
+
+
+class change_game_state(packet):
+  id = 0x46
+  data_s2c = (
+      ("b", "reason"),
+      ("b", "game_mode"),
+  )
+
+
+class thunderbolt(packet):
+  id = 0x47
+  data_s2c = (
+      ("i", "eid"),
+      ("b", ""),
+      ("i", "x"),
+      ("i", "y"),
+      ("i", "z"),
+  )
+
+
+class open_window(packet):
+  id = 0x64
+  data_s2c = (
+      ("b", "window_id"),
+      ("b", "inventory_type"),
+      ("S", "window_title"),
+      ("b", "number_of_slots"),
+  )
+
+
+class close_window(packet):
+  id = 0x65
+  data_c2s = data_s2c = (("b", "window_id"), )
+
+
+class click_window(packet):
+  id = 0x66
+  data_c2s = (
+      ("b", "window_id"),
+      ("h", "slot"),
+      ("b", "right_click"),
+      ("h", "action_number"),
+      ("?", "shift"),
+      ("T", "clicked_item"),
+  )
+
+
+class set_slot(packet):
+  id = 0x67
+  data_s2c = (
+      ("b", "window_id"),
+      ("h", "slot"),
+      ("T", "slot_data"),
+  )
+
+
+class set_window_items(packet):
+  id = 0x68
+  data_s2c = (
+      ("b", "window_id"),
+      ("h", "count"),
+      ("Ta", "slot_data"),
+  )
+
+
+class update_window_property(packet):
+  id = 0x69
+  data_s2c = (
+      ("b", "window_id"),
+      ("h", "property"),
+      ("h", "value"),
+  )
+
+
+class confirm_transaction(packet):
+  id = 0x6A
+  data_c2s = data_s2c = (
+      ("b", "window_id"),
+      ("h", "action_number"),
+      ("?", "accepted"),
+  )
+
+
+class creative_inventory_action(packet):
+  id = 0x6B
+  data_c2s = data_s2c = (
+      ("h", "slot"),
+      ("T", "clicked_item"),
+  )
+
+
+class enchant_item(packet):
+  id = 0x6C
+  data_c2s = (
+      ("b", "window_id"),
+      ("b", "enchantment"),
+  )
+
 
 class update_sign(packet):
   id = 0x82
