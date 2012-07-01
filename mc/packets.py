@@ -17,6 +17,25 @@ def _get_datatable(cls, direction):
 def _get_packet_class(id):
   return _type_by_id[id]
 
+
+def _type_num(attrs, type_info):
+  if isinstance(type_info, tuple):
+    type, tag = type_info
+    if isinstance(tag, int):
+      num = tag
+    elif isinstance(tag, str):
+      if tag[0]=="?":
+        tag = tag[1:]
+        num = 0 if attrs[tag] else 1
+      else:
+        num = int(attrs[tag])
+    else:
+      raise ValueError("tag should be either int or str")
+  else:
+    type = type_info
+    num = 1
+  return type, num
+
  
 def pack(packet, direction):
   result = util.pack_single("B", packet.id)
@@ -32,8 +51,15 @@ def unpack(rawstring, direction):
   print "= unpacking ", pack_class.__name__
   # unpack data with specific data table.
   attr = {}
-  for type, kw in _get_datatable(pack_class, direction):
-    attr[kw], offset = util.unpack_from_single(type, rawstring, offset)
+  for type_info, kw in _get_datatable(pack_class, direction):
+    type, num = _type_num(attr, type_info)
+    if num>1:
+      value = []
+      for _ in range(num):
+        v, offset = util.unpack_from_single(type, rawstring, offset)
+    else:
+      value, offset = util.unpack_from_single(type, rawstring, offset)
+    attr[kw] = value
   # construct packet object
   print "unpack", repr(rawstring[:offset])
   return pack_class(**attr), offset
@@ -320,9 +346,9 @@ class spawn_object_vehicle(packet):
       ("i", "y"),
       ("i", "z"),
       ("i", "fireball_thrower_eid"),
-      ("h", "sx"),
-      ("h", "sy"),
-      ("h", "sz"),
+      (("h", "?fireball_thrower_eid"), "sx"),
+      (("h", "?fireball_thrower_eid"), "sy"),
+      (("h", "?fireball_thrower_eid"), "sz"),
   )
 
 
@@ -498,7 +524,7 @@ class map_chunks(packet):
       ("H", "add_bit_map"),
       ("i", "compressed_size"),
       ("i", ""),
-      ("Ba", "compressed_data"),
+      (("B", "compressed_size"), "compressed_data"),
   )
 
 
@@ -510,7 +536,7 @@ class multi_block_change(packet):
       ("i", "cz"),
       ("h", "record_count"),
       ("i", "data_size"),
-      ("ba", "data"),
+      (("b", "data_size"), "data"),
   )
 
 
@@ -547,7 +573,7 @@ class explosion(packet):
       ("d", "z"),
       ("f", "radius"),
       ("i", "record_count"),
-      ("ba", "records"),
+      (("R", "record_count"), "records"),
   )
 
 
@@ -630,7 +656,7 @@ class set_window_items(packet):
   data_s2c = (
       ("b", "window_id"),
       ("h", "count"),
-      ("Ta", "slot_data"),
+      (("T", "count"), "slot_data"),
   )
 
 
@@ -747,7 +773,7 @@ class plugin_message(packet):
   data_c2s = data_s2c = (
       ("S", "channel"),
       ("h", "length"),
-      ("ba", "data") # byte array
+      (("b", "length"), "data") # byte array
   )
 
 
