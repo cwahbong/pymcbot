@@ -1,6 +1,6 @@
 import socket
 
-from mc.packets import *
+from mc import packets
 
 
 class mcsocket(object):
@@ -12,12 +12,12 @@ class mcsocket(object):
     self.__buf = ""
 
   def sendmc(self, packet):
-    return self.socket.send(pack(packet, "c2s"))
+    return self.socket.send(packets.pack(packet, "c2s"))
 
   def recvmc(self):
     if len(self.__buf)<1:
       self.__buf += self.socket.recv(512)
-    packet, size = unpack(self.__buf, "s2c")
+    packet, size = packets.unpack(self.__buf, "s2c")
     print "@mcsocket.recvmc"
     print packet, size
     self.__buf = self.__buf[size:]
