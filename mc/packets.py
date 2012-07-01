@@ -1,5 +1,6 @@
 import struct
 
+from mc import util
 
 _type_by_id = {}
 
@@ -18,60 +19,24 @@ def _get_packet_class(id):
 
  
 def pack(packet, direction):
-  result = struct.pack("!B", packet.id)
+  result = util.pack_single("B", packet.id)
   for type, kw in _get_datatable(packet.__class__, direction):
     attr = getattr(packet, kw, None)
-    if type in ("ba", "Ba", "Ta"): # array
-      raise NotImplementedError
-    if type=="S": # utf 16 be string
-      attr = "" if attr is None else attr
-      utf16_attr = attr.encode("utf_16_be")
-      result += struct.pack("!h", len(attr))
-      result += struct.pack("!{}s".format(len(utf16_attr)), utf16_attr)
-    elif type=="T": # slot
-      raise NotImplementedError
-    elif type=='M': # metadata
-      raise NotImplementedError
-    elif type in "bB?hHiIlLfd":
-      attr = 0 if attr is None else attr
-      result += struct.pack("!{}".format(type), attr)
-    else:
-      raise ValueError("Invalid data type '{}'".format(type))
+    result += util.pack_single(type, attr)
   return result
 
 
 def unpack(rawstring, direction):
-  # match id.
-  pack_id = struct.unpack_from("!B", rawstring)[0]
+  pack_id, offset = util.unpack_from_single("B", rawstring)
   pack_class = _get_packet_class(pack_id)
-  offset = struct.calcsize("!B")
+  print "= unpacking ", pack_class.__name__
   # unpack data with specific data table.
   attr = {}
   for type, kw in _get_datatable(pack_class, direction):
-    if type in ("ba", "Ba", "Ta"):
-      raise NotImplementedError("unpack array")
-    elif type=="S":
-      length = struct.unpack_from("!h", rawstring, offset)[0]
-      print "L", length, len(rawstring)
-      utf16_length = len((" "*length).encode("utf_16_be"))
-      offset += struct.calcsize("!h")
-      utf16_attr = struct.unpack_from("!{}s".format(utf16_length), rawstring, offset)[0]
-      offset += utf16_length
-      val = utf16_attr.decode("utf_16_be")
-    elif type=="T":
-      raise NotImplementedError("unpack slot")
-    elif type=="M":
-      raise NotImplementedError("unpack metadata")
-    elif type in "bB?hHiIlLfd":
-      print "O", struct.calcsize(type)
-      val = struct.unpack_from("!{}".format(type), rawstring, offset)[0]
-      offset += struct.calcsize(type)
-    else:
-      raise ValueError("Invalid data type '{}'".format(type))
-    if kw:
-      attr[kw] = val
+    attr[kw], offset = util.unpack_from_single(type, rawstring, offset)
   # construct packet object
-  return pack_class(**attr)
+  print "unpack", repr(rawstring[:offset])
+  return pack_class(**attr), offset
 
 
 class packet(object):
@@ -79,8 +44,8 @@ class packet(object):
 
   def __init__(self, **kwargs):
     kwset = set(kwargs.iterkeys())
-    is_c2s = kwset <= set(map(lambda p: p[1], self.data_c2s))
-    is_s2c = kwset <= set(map(lambda p: p[1],self.data_s2c))
+    is_c2s = hasattr(self, "data_c2s") and kwset <= set(map(lambda p: p[1], self.data_c2s))
+    is_s2c = hasattr(self, "data_s2c") and kwset <= set(map(lambda p: p[1],self.data_s2c))
     if is_c2s:
       for (_, attrname) in filter(lambda p: p[1], self.data_c2s):
         setattr(self, attrname, kwargs[attrname])
@@ -91,7 +56,7 @@ class packet(object):
       raise ValueError("kwargs not match neither s2c or c2s direction.")
 
   def __str__(self):
-    return str(self.__dict__)
+    return "Type: {}, Attr={}".format(self.__class__.__name__, str(self.__dict__))
 
 
 @register_packet_type
@@ -366,7 +331,7 @@ class spawn_mob(packet):
   id = 0x18
   data_s2c = (
       ("i", "eid"),
-      ("b", "bype"),
+      ("b", "type"),
       ("i", "x"),
       ("i", "y"),
       ("i", "z"),

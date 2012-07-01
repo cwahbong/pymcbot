@@ -15,8 +15,8 @@ class mcsocket(object):
     return self.socket.send(packets.pack(packet, "c2s"))
 
   def recvmc(self):
-    if len(self.__buf)<1:
-      self.__buf += self.socket.recv(512)
+    if len(self.__buf)<256:
+      self.__buf += self.socket.recv(256)
     packet, size = packets.unpack(self.__buf, "s2c")
     print "@mcsocket.recvmc"
     print packet, size

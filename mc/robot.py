@@ -16,6 +16,7 @@ class receiver(threading.Thread):
   def run(self):
     while not self.stop_flag:
       packet = self.socket.recvmc()
+    print "stopped"
 
   def stop_later(self):
     self.stop_flag = True
