@@ -48,7 +48,7 @@ def pack(packet, direction):
 def unpack(rawstring, direction):
   pack_id, offset = util.unpack_from_single("B", rawstring)
   pack_class = _get_packet_class(pack_id)
-  print "= unpacking ", pack_class.__name__
+  #print "= unpacking ", pack_class.__name__
   # unpack data with specific data table.
   attr = {}
   for type_info, kw in _get_datatable(pack_class, direction):
@@ -61,7 +61,7 @@ def unpack(rawstring, direction):
       value, offset = util.unpack_from_single(type, rawstring, offset)
     attr[kw] = value
   # construct packet object
-  print "unpack", repr(rawstring[:offset])
+  #print "unpack", repr(rawstring[:offset])
   return pack_class(**attr), offset
 
 
