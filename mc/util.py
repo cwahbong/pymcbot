@@ -1,5 +1,24 @@
 import re
 import struct
+import threading
+
+class repeater(threading.Thread):
+
+  def __init__(self):
+    super(repeater, self).__init__()
+    self.__stop = False
+
+  def repeated(self):
+    raise NotImplementedError
+
+  def run(self):
+    while not self.__stop and self.repeated():
+      pass
+    print "stopped"
+
+  def stop_later(self):
+    self.__stop = True
+
 
 def pack_single(fmt, arg):
   if fmt=="S":
@@ -18,6 +37,7 @@ def pack_single(fmt, arg):
   else:
     raise ValueError("Invalid fmt '{}'.".format(fmt))
   return result
+
 
 def unpack_from_single(fmt, buffer, offset=0):
   if fmt=="S":

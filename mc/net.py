@@ -13,6 +13,10 @@ class mcsocket(object):
     self.close = self.__socket.close
     self.__buf = ""
 
+  def close():
+    self.__socket.shutdown(SHUT_BOTH)
+    self.__socket.close()
+
   def sendmc(self, packet):
     return self.__socket.send(packets.pack(packet, "c2s"))
 
