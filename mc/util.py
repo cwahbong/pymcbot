@@ -4,8 +4,8 @@ import threading
 
 class repeater(threading.Thread):
 
-  def __init__(self):
-    super(repeater, self).__init__()
+  def __init__(self, name=None):
+    super(repeater, self).__init__(name=name)
     self.__stop = False
 
   def repeated(self):
@@ -20,14 +20,31 @@ class repeater(threading.Thread):
     self.__stop = True
 
 
+def enchantable(item_id):
+  if 256<=item_id<=259 or 267<=item_id<=279 or 283<=item_id<=286:
+    return True
+  if 290<=item_id<=294 or 298<=item_id<=317:
+    return True
+  if item_id in (261, 359, 346):
+    return True
+  return False
+
 def pack_single(fmt, arg):
   if fmt=="S":
     attr = "" if arg is None else arg
     utf16_attr = attr.encode("utf_16_be")
-    result = struct.pack("!h", len(attr))
+    #result = struct.pack("!h", len(attr))
+    result = pack_single("h", len(attr))
     result += struct.pack("!{}s".format(len(utf16_attr)), utf16_attr)
   elif fmt=="T":
-    raise NotImplementedError
+    if arg is None or arg["id"]==-1:
+      result = pack_single("h", -1)
+    else:
+      result = pack_single("h", arg["id"])
+      result += pack_single("b", arg["count"])
+      result += pack_single("h", arg["damage"])
+      if enchantable(arg["id"]):
+        raise NotImplementedError
   elif fmt=="M":
     raise NotImplementedError
   elif fmt in "bB?hHiIlLqQfd":
@@ -52,7 +69,7 @@ def unpack_from_single(fmt, buffer, offset=0):
     if result["id"]!=-1:
       result["count"], offset = unpack_from_single("b", buffer, offset)
       result["damage"], offset = unpack_from_single("h", buffer, offset)
-      if _enchantable(result["id"]):
+      if enchantable(result["id"]):
         result["data_length"], offset = unpack_from_single("h", buffer, offset)
         if result["data_length"]!=-1:
           result["data"], offset = struct.unpack_from("!s{}".format(result["data_length"]), buffer, offset)

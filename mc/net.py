@@ -9,12 +9,13 @@ class mcsocket(object):
 
   def __init__(self):
     self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    self.connect = self.__socket.connect
-    self.close = self.__socket.close
     self.__buf = ""
 
-  def close():
-    self.__socket.shutdown(SHUT_BOTH)
+  def connect(self, address):
+    self.__socket.connect(address)
+
+  def close(self):
+    self.__socket.shutdown(socket.SHUT_RDWR)
     self.__socket.close()
 
   def sendmc(self, packet):

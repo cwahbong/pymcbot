@@ -57,6 +57,7 @@ def unpack(rawstring, direction):
       value = []
       for _ in range(num):
         v, offset = util.unpack_from_single(type, rawstring, offset)
+        value.append(v)
     else:
       value, offset = util.unpack_from_single(type, rawstring, offset)
     attr[kw] = value
