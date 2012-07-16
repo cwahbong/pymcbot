@@ -9,7 +9,7 @@ class handler(object):
 class keep_alive(handler):
 
   def on__keep_alive(self, packet):
-    self._robot._socket.sendmc(packet)
+    self._robot._send(packet)
     print "keep alive"
 
 

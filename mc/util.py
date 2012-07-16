@@ -14,7 +14,7 @@ class repeater(threading.Thread):
   def run(self):
     while not self.__stop and self.repeated():
       pass
-    print "stopped"
+    print "{} stopped".format(self.name)
 
   def stop_later(self):
     self.__stop = True

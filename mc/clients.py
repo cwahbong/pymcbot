@@ -1,4 +1,5 @@
 import time
+import Queue
 
 from mc import net
 from mc import handlers
@@ -7,34 +8,43 @@ from mc import util
 from mc import window
 
 
-class _receiver(util.repeater):
+class _Receiver(util.repeater):
 
-  def __init__(self, client, handlers=[]):
-    super(_receiver, self).__init__(name="Receiver")
-    self.__socket = client._socket
+  def __init__(self, mcsocket, handlers=[]):
+    super(_Receiver, self).__init__(name="Receiver")
+    self.__mcsocket = mcsocket
     self.__handlers = handlers
 
   def repeated(self):
-    packet = self.__socket.recvmc()
-    if "entity" not in packet.__class__.__name__:
-      print packet
+    packet = self.__mcsocket.recvmc()
     if not packet:
       return False
     for handler in self.__handlers:
+      if hasattr(handler, "on__packet"):
+        handler.on__packet(packet)
       method_name = "on__{}".format(packet.__class__.__name__)
       if hasattr(handler, method_name):
         getattr(handler, method_name)(packet)
     return True
 
 
-class _sender(util.repeater):
+class _Sender(util.repeater):
 
-  def __init__(self, client, handlers=[]):
-    super(_sender, self).__init__(name="Sender")
-    self.__client = client
+  def __init__(self, mcsocket):
+    super(_Sender, self).__init__(name="Sender")
+    self.__mcsocket = mcsocket
+    self.__send_queue = Queue.Queue()
 
   def repeated(self):
-    position_changed = self.__client.next_position != self.__client.position
+    try:
+      packet = self.__send_queue.get_nowait()
+      self.__mcsocket.sendmc(packet)
+      self.__send_queue.task_done()
+    except Queue.Empty:
+      time.sleep(0.1)
+    return True
+      
+    """position_changed = self.__client.next_position != self.__client.position
     look_changed = self.__client.next_look != self.__client.look
     info = {"on_ground", self.__client.on_ground}
     if position_changed:
@@ -51,17 +61,27 @@ class _sender(util.repeater):
         self.__client._socket.sendmc(player_look(**info))
       else:
         self.__client._socket.sendmc(player(**info))
+    """
+
+  def send_later(self, packet):
+    self.__send_queue.put(packet)
 
 
-class client(object):
+class Client(object):
 
-  def __init__(self, handler_list = []):
-    self._socket = net.mcsocket()
-    self.__handler_list = handler_list + [
+  def __init__(self, packet_handlers = []):
+    packet_handlers += [
         handlers.keep_alive(self),
         handlers.position_look(self),
         handlers.slot(self),
         handlers.Window(self)
+    ]
+    self.__socket = net.mcsocket()
+    self.__sender = _Sender(self.__socket)
+    self.__receiver = _Receiver(self.__socket, packet_handlers)
+    self.__workers = [
+        self.__receiver,
+        self.__sender,
     ]
     self.on_ground = True
     self.position = {}
@@ -87,25 +107,30 @@ class client(object):
     self.logout(message="Bot logs out automatically.")
     return False
 
+  def _send(self, packet):
+    self.__sender.send_later(packet)
+
   def login(self, host, port, user, password=""):
-    self._socket.connect((host, port))
-    self.__receiver = _receiver(self, self.__handler_list)
-    self.__receiver.start()
+    self.__socket.connect((host, port))
+    for worker in self.__workers:
+      worker.start()
     while not self.__receiver.is_alive():
       time.sleep(1)
-    self._socket.sendmc(handshake(username_host="{};{}:{}".format(user, host, port)))
-    self._socket.sendmc(login_request(version=29, username=user))
+    self._send(handshake(username_host="{};{}:{}".format(user, host, port)))
+    self._send(login_request(version=29, username=user))
 
   def logout(self, message):
-    self._socket.sendmc(disconnect(reason=message))
-    self.__receiver.join()
-    self._socket.close()
+    self._send(disconnect(reason=message))
+    for worker in self.__workers:
+      worker.stop_later()
+      worker.join()
+    self.__socket.close()
 
 
-class robot(client):
+class Robot(Client):
 
   def __init__(self):
-    super(robot, self).__init__()
+    super(Robot, self).__init__()
 
   def craft(self, input):
     pass
@@ -132,7 +157,7 @@ class robot(client):
     info["direction"] = 0
     info["held_item"] = None
     old_id = self.window_id
-    self._socket.sendmc(player_block_placement(**info))
+    self._send(player_block_placement(**info))
     while old_id==self.window_id:
       time.sleep(0.1)
 
@@ -140,7 +165,7 @@ class robot(client):
     """ close the thing you are opening...
     """
     if self.window_id:
-      self._socket.sendmc(close_window(window_id=self.window_id))
+      self._send(close_window(window_id=self.window_id))
     self.window_id = 0
     self.window_type = -1
     print "CLOSE"
@@ -199,7 +224,7 @@ class robot(client):
     slot_id = window.slot_id(self.window_type, where, where_id, self.other_size)
     print "S", slot_id
     print "W", where, getattr(self, where), self._tid
-    self._socket.sendmc(click_window(window_id=self.window_id, slot=slot_id, right_click=right, action_number=self._tid, shift=shift, clicked_item=getattr(self, where)[where_id]))
+    self._send(click_window(window_id=self.window_id, slot=slot_id, right_click=right, action_number=self._tid, shift=shift, clicked_item=getattr(self, where)[where_id]))
     self._confirm_transaction(self._tid)
     self._tid += 1
     self._update_slots(where, where_id, right)
@@ -213,6 +238,6 @@ class robot(client):
     pass
 
   def send_message(self, message):
-    self._socket.sendmc(chat_message(message=message))
+    self._send(chat_message(message=message))
 
 
