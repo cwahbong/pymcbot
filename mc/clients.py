@@ -89,8 +89,8 @@ class Client(object):
     self.entities = []
     self.inventory = []
     self.holds = []
-    self.next_position = {}
-    self.next_look = {}
+    # self.next_position = {}
+    # self.next_look = {}
     self.window_id = 0
     self.window_type = -1
     self.other_size = 0
@@ -132,21 +132,12 @@ class Robot(Client):
   def __init__(self):
     super(Robot, self).__init__()
 
-  def craft(self, input):
-    pass
-
-  def wear(self, head=None, chest=None, legs=None, feet=None):
-    pass
-
-  def unwear(self, head=False, chest=False, legs=False, feet=False):
-    pass
-
   def next_look_position(self, look=None, position=None):
     pass
 
   def dig(self, position):
     pass
-  
+
   def put(self, position, direction):
     pass
 
@@ -229,13 +220,17 @@ class Robot(Client):
     self._tid += 1
     self._update_slots(where, where_id, right)
 
+  """ 
   def swap_slot(self, slot_id_1, slot_id_2):
     self.click(slot_id_1)
     self.click(slot_id_2)
     self.click(slot_id_1)
+  """
 
+  """
   def get_stack_num(self, item_id):
     pass
+  """
 
   def send_message(self, message):
     self._send(chat_message(message=message))
