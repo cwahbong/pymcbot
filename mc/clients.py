@@ -89,13 +89,13 @@ class Client(object):
     self.entities = []
     self.inventory = []
     self.holds = []
-    self.next_position = {}
-    self.next_look = {}
+    # self.next_position = {}
+    # self.next_look = {}
     self.window_id = 0
     self.window_type = -1
     self.other_size = 0
     self.main_inventory = None
-    self.held_items = None
+    self.held_slot = 0
     # self._slots = None
     self._mouse_hold = {"id": -1}
     self._tid = 1
@@ -132,25 +132,18 @@ class Robot(Client):
   def __init__(self):
     super(Robot, self).__init__()
 
-  def craft(self, input):
-    pass
-
-  def wear(self, head=None, chest=None, legs=None, feet=None):
-    pass
-
-  def unwear(self, head=False, chest=False, legs=False, feet=False):
-    pass
-
   def next_look_position(self, look=None, position=None):
     pass
 
-  def dig(self, position):
-    pass
-  
-  def put(self, position, direction):
+  def dig(self, **info):
     pass
 
-  def open(self, **position):
+  def put(self, **info):
+    info = dict(info)
+    info["held_item"] = None
+    self._send(player_block_placement(**info))
+
+  def open(self, position):
     """ open a chest...
     """
     info = dict(**position)
@@ -229,13 +222,17 @@ class Robot(Client):
     self._tid += 1
     self._update_slots(where, where_id, right)
 
+  """ 
   def swap_slot(self, slot_id_1, slot_id_2):
     self.click(slot_id_1)
     self.click(slot_id_2)
     self.click(slot_id_1)
+  """
 
+  """
   def get_stack_num(self, item_id):
     pass
+  """
 
   def send_message(self, message):
     self._send(chat_message(message=message))
