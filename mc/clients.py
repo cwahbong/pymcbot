@@ -126,27 +126,46 @@ class Client(object):
       worker.join()
     self.__socket.close()
 
+  def next_look_position(self, position={}, look={}):
+    info = dict(position)
+    info.update(look)
+    if position:
+      if look:
+        packet = player_position_look(**info)
+      else:
+        packet = player_position(**info)
+    else:
+      if look:
+        packet = player_look(**info)
+      else:
+        raise ValueError
+    ## will let position_look_updater dealing with this.
+    #self.__next_look_position.enqueue
+    # self._send(packet)
 
-class Robot(Client):
+  def drop(self, **info):
+    packet_info = dict(info)
+    packet_info["status"] = 4
+    self._send(player_digging(**packet_info))
 
-  def __init__(self):
-    super(Robot, self).__init__()
+  def dig(self, wait, **info):
+      packet_info = dict(info)
+      packet_info["status"] = 0
+      self._send(player_digging(**packet_info))
+      # TODO sleep a while
+      time.sleep(wait)
+      packet_info["status"] = 2
+      self._send(player_digging(**packet_info))
 
-  def next_look_position(self, look=None, position=None):
-    pass
+  def put(self, **position):
+    packet_info = dict(position)
+    packet_info["held_item"] = None
+    self._send(player_block_placement(**packet_info))
 
-  def dig(self, **info):
-    pass
-
-  def put(self, **info):
-    info = dict(info)
-    info["held_item"] = None
-    self._send(player_block_placement(**info))
-
-  def open(self, position):
+  def open(self, **position):
     """ open a chest...
     """
-    info = dict(**position)
+    info = dict(position)
     info["direction"] = 0
     info["held_item"] = None
     old_id = self.window_id
@@ -210,29 +229,13 @@ class Robot(Client):
         print "left click diff"
         swap()
 
-  def click(self, where, where_id=0, right=False, shift=False):
+  def click_window(self, where, where_id=0, right=False, shift=False):
     right = 1 if right else 0
-    print "O", self.other_size
-    print "WT", self.window_type
     slot_id = window.slot_id(self.window_type, where, where_id, self.other_size)
-    print "S", slot_id
-    print "W", where, getattr(self, where), self._tid
     self._send(click_window(window_id=self.window_id, slot=slot_id, right_click=right, action_number=self._tid, shift=shift, clicked_item=getattr(self, where)[where_id]))
     self._confirm_transaction(self._tid)
     self._tid += 1
     self._update_slots(where, where_id, right)
-
-  """ 
-  def swap_slot(self, slot_id_1, slot_id_2):
-    self.click(slot_id_1)
-    self.click(slot_id_2)
-    self.click(slot_id_1)
-  """
-
-  """
-  def get_stack_num(self, item_id):
-    pass
-  """
 
   def send_message(self, message):
     self._send(chat_message(message=message))
