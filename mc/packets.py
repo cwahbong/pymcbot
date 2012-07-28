@@ -1,6 +1,8 @@
 import struct
 
+import mc.packet
 from mc import util
+from mc.fields import *
 
 _type_by_id = {}
 
@@ -38,6 +40,8 @@ def _type_num(attrs, type_info):
 
  
 def pack(packet, direction):
+  if isinstance(packet, mc.packet.Packet):
+    return mc.packet.pack(packet, direction)
   result = util.pack_single("B", packet.id)
   for type, kw in _get_datatable(packet.__class__, direction):
     attr = getattr(packet, kw, None)
@@ -47,6 +51,8 @@ def pack(packet, direction):
 
 def unpack(rawstring, direction):
   pack_id, offset = util.unpack_from_single("B", rawstring)
+  if 0x00 <= pack_id==0x03:
+    return mc.packet.unpack(rawstring, direction)
   pack_class = _get_packet_class(pack_id)
   #print "= unpacking ", pack_class.__name__
   # unpack data with specific data table.

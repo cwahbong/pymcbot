@@ -1,6 +1,7 @@
 import re
 import struct
 import threading
+from fields import *
 
 class repeater(threading.Thread):
 
@@ -31,11 +32,12 @@ def enchantable(item_id):
 
 def pack_single(fmt, arg):
   if fmt=="S":
-    attr = "" if arg is None else arg
+    return String.pack(arg)
+    """attr = "" if arg is None else arg
     utf16_attr = attr.encode("utf_16_be")
     #result = struct.pack("!h", len(attr))
     result = pack_single("h", len(attr))
-    result += struct.pack("!{}s".format(len(utf16_attr)), utf16_attr)
+    result += struct.pack("!{}s".format(len(utf16_attr)), utf16_attr)"""
   elif fmt=="T":
     if arg is None or arg["id"]==-1:
       result = pack_single("h", -1)
@@ -58,11 +60,7 @@ def pack_single(fmt, arg):
 
 def unpack_from_single(fmt, buffer, offset=0):
   if fmt=="S":
-    length, offset = unpack_from_single("h", buffer, offset)
-    utf16_length = len((" "*length).encode("utf_16_be"))
-    utf16_attr = struct.unpack_from("!{}s".format(utf16_length), buffer, offset)[0]
-    result = utf16_attr.decode("utf_16_be")
-    offset += utf16_length
+    return String.unpack(buffer, offset)
   elif fmt=="T":
     result = {}
     result["id"], offset = unpack_from_single("h", buffer, offset)
