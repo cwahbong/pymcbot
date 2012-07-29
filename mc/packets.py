@@ -1,798 +1,424 @@
-import struct
+import functools
+import sys
 
-import mc.packet
-from mc import util
 from mc.fields import *
 
-_type_by_id = {}
+
+_fields = {
+    "c2s": {},
+    "s2c": {},
+}
+
+_kwset = {
+    "c2s": {},
+    "s2c": {},
+}
+
+_name = {}
+
+_id = {}
 
 
-def register_packet_type(cls):
-  _type_by_id[cls.id] = cls
-  return cls
-
-
-def _get_datatable(cls, direction):
-  return getattr(cls, "data_{}".format(direction))
-
-
-def _get_packet_class(id):
-  return _type_by_id[id]
-
-
-def _type_num(attrs, type_info):
-  if isinstance(type_info, tuple):
-    type, tag = type_info
-    if isinstance(tag, int):
-      num = tag
-    elif isinstance(tag, str):
-      if tag[0]=="?":
-        tag = tag[1:]
-        num = 0 if attrs[tag] else 1
+class Packet(object):
+  
+  def __init__(self, direction, name, **field_info):
+    self.id = _id[name]
+    self.direction = direction
+    kwset = _kwset[direction][self.id]
+    for field_name, field_content in field_info.items():
+      if field_name in kwset:
+        setattr(self, field_name, field_content)
       else:
-        num = int(attrs[tag])
-    else:
-      raise ValueError("tag should be either int or str")
-  else:
-    type = type_info
-    num = 1
-  return type, num
+        raise ValueError("``{}'' is not a valid field name.".format(field_name))
 
- 
-def pack(packet, direction):
-  if isinstance(packet, mc.packet.Packet):
-    return mc.packet.pack(packet, direction)
-  result = util.pack_single("B", packet.id)
-  for type, kw in _get_datatable(packet.__class__, direction):
-    attr = getattr(packet, kw, None)
-    result += util.pack_single(type, attr)
+  def name(self):
+    return _name[self.id]
+
+
+def pack(packet):
+  result = UnsignedByte.pack(packet.id)
+  for field_type, field_name in _fields[packet.direction][packet.id]:
+    field_content = getattr(packet, field_name, None)
+    result += field_type.pack(field_content)
   return result
 
 
-def unpack(rawstring, direction):
-  pack_id, offset = util.unpack_from_single("B", rawstring)
-  if 0x00 <= pack_id==0x03 or pack_id==0x33:
-    return mc.packet.unpack(rawstring, direction)
-  pack_class = _get_packet_class(pack_id)
-  #print "= unpacking ", pack_class.__name__
-  # unpack data with specific data table.
-  attr = {}
-  for type_info, kw in _get_datatable(pack_class, direction):
-    type, num = _type_num(attr, type_info)
-    if num>1:
-      value = []
-      for _ in range(num):
-        v, offset = util.unpack_from_single(type, rawstring, offset)
-        value.append(v)
-    else:
-      value, offset = util.unpack_from_single(type, rawstring, offset)
-    attr[kw] = value
-  # construct packet object
-  #print "unpack", repr(rawstring[:offset])
-  return pack_class(**attr), offset
-
-
-class packet(object):
-  id = -1
-
-  def __init__(self, **kwargs):
-    kwset = set(kwargs.iterkeys())
-    is_c2s = hasattr(self, "data_c2s") and kwset <= set(map(lambda p: p[1], self.data_c2s))
-    is_s2c = hasattr(self, "data_s2c") and kwset <= set(map(lambda p: p[1],self.data_s2c))
-    if is_c2s:
-      for (_, attrname) in filter(lambda p: p[1], self.data_c2s):
-        setattr(self, attrname, kwargs[attrname])
-    if is_s2c:
-      for (_, attrname) in filter(lambda p: p[1], self.data_s2c):
-        setattr(self, attrname, kwargs[attrname])
-    if not is_c2s and not is_s2c:
-      raise ValueError("kwargs not match neither s2c or c2s direction.")
-
-  def __str__(self):
-    return "Type: {}, Attr={}".format(self.__class__.__name__, str(self.__dict__))
-
-
-@register_packet_type
-class keep_alive(packet):
-  id = 0x00
-  data_c2s = data_s2c = (("i", "keepalive_id"), )
-
-
-@register_packet_type
-class login_request(packet):
-  id = 0x01
-  data_c2s = (
-      ("i", "version"),
-      ("S", "username"),
-      ("S", ""),
-      ("i", ""),
-      ("i", ""),
-      ("b", ""),
-      ("B", ""),
-      ("B", ""),
-  )
-  data_s2c = (
-      ("i", "eid"),
-      ("S", ""),
-      ("S", "level_type"),
-      ("i", "server_mode"),
-      ("i", "dimension"),
-      ("b", "difficulty"),
-      ("B", ""),
-      ("B", "max_players"),
-  )
-
-
-@register_packet_type
-class handshake(packet):
-  id = 0x02
-  data_c2s = (("S", "username_host"), )
-  data_s2c = (("S", "connection_hash"), )
-
-
-@register_packet_type
-class chat_message(packet):
-  id = 0x03
-  data_c2s = data_s2c = (("S", "message"), )
-
-
-@register_packet_type
-class time_update(packet):
-  id = 0x04
-  data_c2s = data_s2c = (("q", "time"), )
-
-
-@register_packet_type
-class entity_equipment(packet):
-  id = 0x05
-  data_s2c = (
-      ("i", "eid"),
-      ("h", "slot"),
-      ("h", "item_id"),
-      ("h", "damage"),
-  )
-
-
-@register_packet_type
-class spawn_position(packet):
-  id = 0x06
-  data_s2c = (
-      ("i", "x"),
-      ("i", "y"),
-      ("i", "z"),
-  )
-
-
-@register_packet_type
-class use_entity(packet):
-  id = 0x07
-  data_c2s = (
-      ("i", "user"),
-      ("i", "target"),
-      ("?", "mouse_button"),
-  )
-
-
-@register_packet_type
-class update_health(packet):
-  id = 0x08
-  data_s2c = (
-      ("h", "health"),
-      ("h", "food"),
-      ("f", "food_saturation"),
-  )
-
-
-@register_packet_type
-class respawn(packet):
-  id = 0x09
-  data_c2s = data_s2c = (
-      ("i", "dimension"),
-      ("b", "difficulty"),
-      ("b", "creative_mode"),
-      ("h", "world_height"),
-      ("S", "level_type"),
-  )
-
-
-@register_packet_type
-class player(packet):
-  id = 0x0A
-  data_c2s = (("?", "on_ground"), )
-
-
-@register_packet_type
-class player_position(player):
-  id = 0x0B
-  data_c2s = (
-      ("d", "x"),
-      ("d", "y"),
-      ("d", "stance"),
-      ("d", "z"),
-  ) + player.data_c2s
-
-
-@register_packet_type
-class player_look(player):
-  id = 0x0C
-  data_c2s = (
-      ("f", "yaw"),
-      ("f", "pitch"),
-  ) + player.data_c2s
-
-
-@register_packet_type
-class player_position_look(player):
-  id = 0x0D
-  data_c2s = (
-      ("d", "x"),
-      ("d", "y"),
-      ("d", "stance"),
-      ("d", "z"),
-      ("f", "yaw"),
-      ("f", "pitch"),
-  ) + player.data_c2s
-  data_s2c = (
-      ("d", "x"),
-      ("d", "stance"),
-      ("d", "y"),
-      ("d", "z"),
-      ("f", "yaw"),
-      ("f", "pitch"),
-  ) + player.data_c2s
-
-
-@register_packet_type
-class player_digging(packet):
-  id = 0x0E
-  data_c2s = (
-      ("b", "status"),
-      ("i", "x"),
-      ("b", "y"),
-      ("i", "z"),
-      ("b", "face"),
-  )
-
-
-@register_packet_type
-class player_block_placement(packet):
-  id = 0x0F
-  data_c2s = (
-      ("i", "x"),
-      ("b", "y"),
-      ("i", "z"),
-      ("b", "direction"),
-      ("T", "held_item"),
-  )
-
-
-@register_packet_type
-class held_item_change(packet):
-  id = 0x10
-  data_c2s = (("h", "slot_id"), )
-
-
-@register_packet_type
-class use_bed(packet):
-  id = 0x11
-  data_s2c = (
-      ("i", "eid"),
-      ("b", ""), # unknown
-      ("i", "x"),
-      ("b", "y"),
-      ("i", "z"),
-  )
-
-
-@register_packet_type
-class animation(packet):
-  id = 0x12
-  data_c2s = data_s2c = (
-      ("i", "eid"),
-      ("b", "animation"),
-  )
-
-
-@register_packet_type
-class entity_action(packet):
-  id = 0x13
-  data_c2s = (
-      ("i", "eid"),
-      ("b", "action_id"),
-  )
-
-
-@register_packet_type
-class spawn_named_entity(packet):
-  id = 0x14
-  data_s2c = (
-      ("i", "eid"),
-      ("S", "player_name"),
-      ("i", "x"),
-      ("i", "y"),
-      ("i", "z"),
-      ("b", "yaw"),
-      ("b", "pitch"),
-      ("h", "current_item"),
-  )
-
-
-@register_packet_type
-class spawn_dropped_item(packet):
-  id = 0x15
-  data_s2c = (
-      ("i", "eid"),
-      ("h", "item"),
-      ("b", "count"),
-      ("h", "damage_data"),
-      ("i", "x"),
-      ("i", "y"),
-      ("i", "z"),
-      ("b", "rotation"),
-      ("b", "pitch"),
-      ("b", "roll"),
-  )
-
-
-@register_packet_type
-class collect_item(packet):
-  id = 0x16
-  data_s2c = (
-      ("i", "collected_eid"),
-      ("i", "collector_eid"),
-  )
-
-
-@register_packet_type
-class spawn_object_vehicle(packet):
-  id = 0x17
-  data_s2c = (
-      ("i", "eid"),
-      ("b", "type"),
-      ("i", "x"),
-      ("i", "y"),
-      ("i", "z"),
-      ("i", "fireball_thrower_eid"),
-      (("h", "?fireball_thrower_eid"), "sx"),
-      (("h", "?fireball_thrower_eid"), "sy"),
-      (("h", "?fireball_thrower_eid"), "sz"),
-  )
-
-
-@register_packet_type
-class spawn_mob(packet):
-  id = 0x18
-  data_s2c = (
-      ("i", "eid"),
-      ("b", "type"),
-      ("i", "x"),
-      ("i", "y"),
-      ("i", "z"),
-      ("b", "yaw"),
-      ("b", "pitch"),
-      ("b", "head_yaw"),
-      ("M", "metadata"),
-  )
-
-
-@register_packet_type
-class spawn_painting(packet):
-  id = 0x19
-  data_s2c = (
-      ("i", "eid"),
-      ("S", "title"),
-      ("i", "x"),
-      ("i", "y"),
-      ("i", "z"),
-      ("i", "direction"),
-  )
-
-
-@register_packet_type
-class spawn_experience_orb(packet):
-  id = 0x1A
-  data_s2c = (
-      ("i", "eid"),
-      ("i", "x"),
-      ("i", "y"),
-      ("i", "z"),
-      ("h", "count"),
-  )
-
-
-@register_packet_type
-class entity_velocity(packet):
-  id = 0x1C
-  data_s2c = (
-      ("i", "eid"),
-      ("h", "vx"),
-      ("h", "vy"),
-      ("h", "vz"),
-  )
-
-
-@register_packet_type
-class destroy_entity(packet):
-  id = 0x1D
-  data_s2c = (("i", "eid"), )
-
-
-@register_packet_type
-class entity(packet):
-  id = 0x1E
-  data_s2c = (("i", "eid"), )
-
-
-@register_packet_type
-class entity_relative_move(entity):
-  id = 0x1F
-  data_s2c = entity.data_s2c + (
-      ("b", "dx"),
-      ("b", "dy"),
-      ("b", "dz"),
-  )
-
-
-@register_packet_type
-class entity_look(entity):
-  id = 0x20
-  data_s2c = entity.data_s2c + (
-      ("b", "yaw"),
-      ("b", "pitch"),
-  )
-
-
-@register_packet_type
-class entity_relative_move_look(entity):
-  id = 0x21
-  data_s2c = entity.data_s2c + entity_relative_move.data_s2c[1:] + entity_look.data_s2c[1:]
-
-
-@register_packet_type
-class entity_teleport(entity):
-  id = 0x22
-  data_s2c = entity.data_s2c + (
-      ("i", "x"),
-      ("i", "y"),
-      ("i", "z"),
-      ("b", "yaw"),
-      ("b", "pitch"),
-  )
-
-
-@register_packet_type
-class entity_head_look(entity):
-  id = 0x23
-  data_s2c = entity.data_s2c + (("b", "head_yaw"), )
-
-
-@register_packet_type
-class entity_statys(entity):
-  id = 0x26
-  data_s2c = entity.data_s2c + (("b", "entity_status"), )
-
-
-@register_packet_type
-class attach_entity(entity):
-  id = 0x27
-  data_s2c = entity.data_s2c + (("i", "vehical_id"), )
-
-
-@register_packet_type
-class entity_metadata(entity):
-  id = 0x28
-  data_s2c = entity.data_s2c + (("M", "metadata"), )
-
-
-@register_packet_type
-class entity_effect(entity):
-  id = 0x29
-  data_s2c = entity.data_s2c + (
-      ("b", "effect_id"),
-      ("b", "amplifier"),
-      ("h", "duration"),
-  )
-
-
-@register_packet_type
-class remove_entity_effect(entity):
-  id = 0x2A
-  data_s2c = entity.data_s2c + (("b", "effect_id"), )
-
-
-@register_packet_type
-class set_experience(packet):
-  id = 0x2B
-  data_s2c = (
-      ("f", "experience_bar"),
-      ("h", "level"),
-      ("h", "total_experience"),
-  )
-
-
-@register_packet_type
-class map_column_allocation(packet):
-  id = 0x32
-  data_s2c = (
-      ("i", "x"),
-      ("i", "z"),
-      ("?", "mode"),
-  )
-
-
-@register_packet_type
-class map_chunks(packet):
-  id = 0x33
-  data_s2c = (
-      ("i", "x"),
-      ("i", "z"),
-      ("?", "ground_up_continuous"),
-      ("H", "primary_bit_map"),
-      ("H", "add_bit_map"),
-      ("i", "compressed_size"),
-      ("i", ""),
-      (("B", "compressed_size"), "compressed_data"),
-  )
-
-
-@register_packet_type
-class multi_block_change(packet):
-  id = 0x34
-  data_s2c = (
-      ("i", "cx"),
-      ("i", "cz"),
-      ("h", "record_count"),
-      ("i", "data_size"),
-      (("b", "data_size"), "data"),
-  )
-
-
-@register_packet_type
-class block_change(packet):
-  id = 0x35
-  data_s2c = (
-      ("i", "x"),
-      ("b", "y"),
-      ("i", "z"),
-      ("b", "block_type"),
-      ("b", "block_metadata"),
-  )
-
-
-@register_packet_type
-class block_action(packet):
-  id = 0x36
-  data_s2c = (
-      ("i", "x"),
-      ("h", "y"),
-      ("i", "z"),
-      ("b", "byte1"),
-      ("b", "byte2"),
-  )
-
-
-@register_packet_type
-class explosion(packet):
-  id = 0x3C
-  data_s2c = (
-      ("d", "x"),
-      ("d", "y"),
-      ("d", "z"),
-      ("f", "radius"),
-      ("i", "record_count"),
-      (("R", "record_count"), "records"),
-  )
-
-
-@register_packet_type
-class sound_partical_effect(packet):
-  id = 0x3D
-  data_s2c = (
-      ("i", "eid"),
-      ("i", "x"),
-      ("b", "y"),
-      ("i", "z"),
-      ("i", "data"),
-  )
-
-
-@register_packet_type
-class change_game_state(packet):
-  id = 0x46
-  data_s2c = (
-      ("b", "reason"),
-      ("b", "game_mode"),
-  )
-
-
-@register_packet_type
-class thunderbolt(packet):
-  id = 0x47
-  data_s2c = (
-      ("i", "eid"),
-      ("b", ""),
-      ("i", "x"),
-      ("i", "y"),
-      ("i", "z"),
-  )
-
-
-@register_packet_type
-class open_window(packet):
-  id = 0x64
-  data_s2c = (
-      ("b", "window_id"),
-      ("b", "inventory_type"),
-      ("S", "window_title"),
-      ("b", "number_of_slots"),
-  )
-
-
-@register_packet_type
-class close_window(packet):
-  id = 0x65
-  data_c2s = data_s2c = (("b", "window_id"), )
-
-
-@register_packet_type
-class click_window(packet):
-  id = 0x66
-  data_c2s = (
-      ("b", "window_id"),
-      ("h", "slot"),
-      ("b", "right_click"),
-      ("h", "action_number"),
-      ("?", "shift"),
-      ("T", "clicked_item"),
-  )
-
-
-@register_packet_type
-class set_slot(packet):
-  id = 0x67
-  data_s2c = (
-      ("b", "window_id"),
-      ("h", "slot"),
-      ("T", "slot_data"),
-  )
-
-
-@register_packet_type
-class set_window_items(packet):
-  id = 0x68
-  data_s2c = (
-      ("b", "window_id"),
-      ("h", "count"),
-      (("T", "count"), "slot_data"),
-  )
-
-
-@register_packet_type
-class update_window_property(packet):
-  id = 0x69
-  data_s2c = (
-      ("b", "window_id"),
-      ("h", "property"),
-      ("h", "value"),
-  )
-
-
-@register_packet_type
-class confirm_transaction(packet):
-  id = 0x6A
-  data_c2s = data_s2c = (
-      ("b", "window_id"),
-      ("h", "action_number"),
-      ("?", "accepted"),
-  )
-
-
-@register_packet_type
-class creative_inventory_action(packet):
-  id = 0x6B
-  data_c2s = data_s2c = (
-      ("h", "slot"),
-      ("T", "clicked_item"),
-  )
-
-
-@register_packet_type
-class enchant_item(packet):
-  id = 0x6C
-  data_c2s = (
-      ("b", "window_id"),
-      ("b", "enchantment"),
-  )
-
-
-@register_packet_type
-class update_sign(packet):
-  id = 0x82
-  data_c2s = data_s2c = (
-      ("i", "x"),
-      ("h", "y"),
-      ("i", "z"),
-      ("S", "text1"),
-      ("S", "text2"),
-      ("S", "text3"),
-      ("S", "text4"),
-  )
-
-
-@register_packet_type
-class item_data(packet):
-  id = 0x83
-  data_s2c = (
-      ("h", "item_type"),
-      ("h", "item_id"),
-      ("B", "text_length"),
-      ("ba", "text"),
-  )
-
-
-@register_packet_type
-class update_title_entity(packet):
-  id = 0x84
-  data_s2c = (
-      ("i", "x"),
-      ("h", "y"),
-      ("i", "z"),
-      ("b", "action"),
-      ("i", "custom1"),
-      ("i", "custom2"),
-      ("i", "custom3"),
-  )
-
-
-@register_packet_type
-class increment_statistic(packet):
-  id = 0xC8
-  data_s2c = (
-      ("i", "statistic_id"),
-      ("b", "amount"),
-  )
-
-
-@register_packet_type
-class player_list_item(packet):
-  id = 0xC9
-  data_s2c = (
-      ("S", "player_name"),
-      ("?", "online"),
-      ("h", "ping"),
-  )
-
-
-@register_packet_type
-class player_abilities(packet):
-  id = 0xCA
-  data_c2s = data_s2c = (
-      ("?", "invulnerabile"),
-      ("?", "flying"),
-      ("?", "flyable"),
-      ("?", "instant_destroy"),
-  )
-
-
-@register_packet_type
-class plugin_message(packet):
-  id = 0xFA
-  data_c2s = data_s2c = (
-      ("S", "channel"),
-      ("h", "length"),
-      (("b", "length"), "data") # byte array
-  )
-
-
-@register_packet_type
-class server_list_ping(packet):
-  id = 0xFE
-  data_c2s = ()
-
-
-@register_packet_type
-class disconnect(packet):
-  id = 0xFF
-  data_c2s = data_s2c = (("S", "reason"), )
+def unpack(rawstring, direction, offset=0):
+    id, offset = UnsignedByte.unpack(rawstring, offset)
+    field_info = {}
+    for field_type, field_name in _fields[direction][id]:
+      field_content, offset = field_type.unpack(rawstring, offset, field_info)
+      field_info[field_name] = field_content
+    return Packet(direction, _name[id], **field_info), offset
+
+
+def register(id, direction, name, fields):
+  if direction=="both":
+    register(id, "c2s", name, fields)
+    register(id, "s2c", name, fields)
+  else:
+    if direction not in ("c2s", "s2c"):
+      raise ValueError("Not a valid direction: {}".format(direction))
+    _fields[direction][id] = fields
+    _kwset[direction][id] = set(map(lambda p: p[1], fields))
+    _name[id] = name
+    _id[name] = id
+    # add a shortcut function to construct the packet
+    setattr(sys.modules[__name__], name, functools.partial(Packet, direction="c2s", name=name))
+
+__entity = [(Int, "eid")]
+__entity_relative_move = [
+    (Byte,          "dx"),
+    (Byte,          "dy"),
+    (Byte,          "dz"),
+]
+__entity_look = [
+    (Byte,          "yaw"),
+    (Byte,          "pitch"),
+]
+__window = [(Byte, "window_id")]
+
+register(0x00, "both", "keep_alive", [(Int, "keepalive_id")])
+register(0x01,  "c2s", "login_request", [
+    (Int,           "version"),
+    (String,        "username"),
+    (String,        ""),
+    (Int,           ""),
+    (Int,           ""),
+    (Byte,          ""),
+    (UnsignedByte,  ""),
+    (UnsignedByte,  ""),
+])
+register(0x01,  "s2c", "login_request",  __entity + [
+    (String,        ""),
+    (String,        "level_type"),
+    (Int,           "server_mode"),
+    (Int,           "dimension"),
+    (Byte,          "difficulty"),
+    (UnsignedByte,  ""),
+    (UnsignedByte,  ""),
+])
+register(0x02, "c2s",  "handshake", [(String, "username_host")])
+register(0x02, "s2c",  "handshake", [(String, "connection_hash")])
+register(0x03, "both", "chat_message", [(String, "message")])
+register(0x04, "both", "time_update", [(Long, "time")])
+register(0x05, "s2c",  "entity_equipment", __entity + [
+    (Short,         "slot"),
+    (Short,         "item_id"),
+    (Short,         "damage"),
+])
+register(0x06, "s2c",  "spawn_position", [
+    (Int,           "x"),
+    (Int,           "y"),
+    (Int,           "z"),
+])
+register(0x07, "c2s",  "use_entity", [
+    (Int,           "user"),
+    (Int,           "target"),
+    (Bool,          "mouse_button"),
+])
+register(0x08, "s2c",  "update_health", [
+    (Short,         "health"),
+    (Short,         "food"),
+    (Float,         "food_saturation"),
+])
+register(0x09, "both", "respawn", [
+    (Int,           "dimension"),
+    (Byte,          "difficulty"),
+    (Byte,          "creative_mode"),
+    (Short,         "world_height"),
+    (String,        "level_type"),
+])
+__player = [(Bool, "on_ground")]
+register(0x0A, "c2s",  "player", __player)
+register(0x0B, "c2s",  "player_position", [
+    (Double,        "x"),
+    (Double,        "y"),
+    (Double,        "stance"),
+    (Double,        "z"),
+] + __player)
+register(0x0C, "c2s",  "player_look", [
+    (Float,         "yaw"),
+    (Float,         "pitch"),
+] + __player)
+register(0x0D, "c2s",  "player_position_look", [
+    (Double,        "x"),
+    (Double,        "y"),
+    (Double,        "stance"),
+    (Double,        "z"),
+    (Float,         "yaw"),
+    (Float,         "pitch"),
+] + __player)
+register(0x0D, "s2c",  "player_position_look", [
+    (Double,        "x"),
+    (Double,        "stance"),
+    (Double,        "y"),
+    (Double,        "z"),
+    (Float,         "yaw"),
+    (Float,         "pitch"),
+] + __player)
+register(0x0E, "c2s",  "player_digging", [
+    (Byte,          "status"),
+    (Int,           "x"),
+    (Byte,          "y"),
+    (Int,           "z"),
+    (Byte,          "face"),
+])
+register(0x0F, "c2s",  "player_block_placement", [
+    (Int,           "x"),
+    (Byte,          "y"),
+    (Int,           "z"),
+    (Byte,          "direction"),
+    (Slot,          "held_item"),
+])
+register(0x10, "c2s",  "held_item_change", [(Short, "slot_id")])
+register(0x11, "s2c",  "use_bed", __entity + [
+    (Byte,          ""), # unknown
+    (Int,           "x"),
+    (Byte,          "y"),
+    (Int,           "z"),
+])
+register(0x12, "both", "animation", __entity + [
+    (Byte,          "animation"),
+])
+register(0x13, "c2s",  "entity_action", __entity + [
+    (Byte,          "action_id"),
+])
+register(0x14, "s2c",  "spawn_named_entity", __entity + [
+    (String,        "player_name"),
+    (Int,           "x"),
+    (Int,           "y"),
+    (Int,           "z"),
+    (Byte,          "yaw"),
+    (Byte,          "pitch"),
+    (Short,         "current_item"),
+])
+register(0x15, "s2c",  "spawn_dropped_item", __entity + [
+    (Short,         "item"),
+    (Byte,          "count"),
+    (Short,         "damage_data"),
+    (Int,           "x"),
+    (Int,           "y"),
+    (Int,           "z"),
+    (Byte,          "rotation"),
+    (Byte,          "pitch"),
+    (Byte,          "roll"),
+])
+register(0x16, "s2c",  "collect_item", [
+    (Int,           "collected_eid"),
+    (Int,           "collector_eid"),
+])
+register(0x17, "s2c",  "spawn_object_vehicle", __entity + [
+    (Byte,          "type"),
+    (Int,           "x"),
+    (Int,           "y"),
+    (Int,           "z"),
+    (Object,        "additional_data"),
+])
+"""(Int,         "fireball_thrower_eid"),
+(("h", "?fireball_thrower_eid"), "sx"),
+(("h", "?fireball_thrower_eid"), "sy"),
+(("h", "?fireball_thrower_eid"), "sz"),"""
+register(0x18, "s2c",  "spawn_mob", __entity + [
+    (Byte,          "type"),
+    (Int,           "x"),
+    (Int,           "y"),
+    (Int,           "z"),
+    (Byte,          "yaw"),
+    (Byte,          "pitch"),
+    (Byte,          "head_yaw"),
+    (MetaData,      "metadata"),
+])
+register(0x19, "s2c",  "spawn_painting", __entity + [
+    (String,        "title"),
+    (Int,           "x"),
+    (Int,           "y"),
+    (Int,           "z"),
+    (Int,           "direction"),
+])
+register(0x1A, "s2c",  "spawn_experience_orb",  __entity + [
+    (Int,           "x"),
+    (Int,           "y"),
+    (Int,           "z"),
+    (Short,         "count"),
+])
+register(0x1C, "s2c",  "entity_velocity", __entity + [
+    (Short,         "vx"),
+    (Short,         "vy"),
+    (Short,         "vz"),
+])
+register(0x1D, "s2c",  "destroy_entity", __entity)
+register(0x1E, "s2c",  "entity",  __entity)
+register(0x1F, "s2c",  "entity_relative_move", __entity + __entity_relative_move)
+register(0x20, "s2c",  "entity_look", __entity + __entity_look)
+register(0x21, "s2c",  "entity_relative_move_look", __entity + __entity_relative_move + __entity_look)
+register(0x22, "s2c",  "entity_teleport", __entity + [
+    (Int, "x"),
+    (Int, "y"),
+    (Int, "z"),
+] + __entity_look)
+register(0x23, "s2c",  "entity_head_look", __entity + [(Byte, "head_yaw")])
+register(0x26, "s2c",  "entity_status", __entity + [(Byte, "entity_statys")])
+register(0x27, "s2c",  "attach_entity", __entity + [(Int, "vehical_id")])
+register(0x28, "s2c",  "entity_metadata", __entity + [(MetaData, "metadata")])
+register(0x29, "s2c",  "entity_effect", __entity + [
+    (Byte,          "effect_id"),
+    (Byte,          "amplifier"),
+    (Short,         "duration"),
+])
+register(0x2A, "s2c",  "remove_entity_effect", __entity + [(Byte, "effect_id")])
+register(0x2B, "s2c",  "set_experience", [
+    (Float,         "experience_bar"),
+    (Short,         "level"),
+    (Short,         "total_experience"),
+])
+register(0x32, "s2c",  "map_column_allocation", [
+    (Int,           "x"),
+    (Int,           "z"),
+    (Bool,          "mode"),
+])
+register(0x33, "s2c",  "chunk_data", [
+    (Int,           "x"),
+    (Int,           "z"),
+    (Bool,          "ground_up_continues"),
+    (UnsignedShort, "primary_bit_map"),
+    (UnsignedShort, "add_bit_map"),
+    (Int,           "compressed_size"),
+    (Int,           ""),
+    (Array(UnsignedByte, "compressed_size"),
+                    "compressed_data"),
+])
+register(0x34, "s2c",  "multi_block_change", [
+    (Int,           "cx"),
+    (Int,           "cz"),
+    (Short,         "record_count"),
+    (Int,           "data_size"),
+    (MultiBlockRecord("data_size"),
+                    "data"),
+])
+register(0x35, "s2c",  "block_change", [
+    (Int,           "x"),
+    (Byte,          "y"),
+    (Int,           "z"),
+    (Byte,          "block_type"),
+    (Byte,          "block_metadata"),
+])
+register(0x36, "s2c",  "block_action", [
+    (Int,           "x"),
+    (Short,         "y"),
+    (Int,           "z"),
+    (Byte,          "byte1"),
+    (Byte,          "byte2"),
+])
+register(0x3C, "s2c",  "explosion", [
+    (Double,        "x"),
+    (Double,        "y"),
+    (Double,        "z"),
+    (Float,         "radius"),
+    (Int,           "record_count"),
+    (Array(ExplosionRecord, "record_count"),
+                    "records"),
+])
+register(0x3D, "s2c",  "sound_partical_effect", __entity + [
+    (Int,           "x"),
+    (Byte,          "y"),
+    (Int,           "z"),
+    (Int,           "data"),
+])
+register(0x46, "s2c",  "change_game_state", [
+    (Byte,          "reason"),
+    (Byte,          "game_mode"),
+])
+register(0x47, "s2c",  "thunderbolt", __entity + [
+    (Byte,          ""),
+    (Int,           "x"),
+    (Int,           "y"),
+    (Int,           "z"),
+])
+register(0x64, "s2c",  "open_window", __window + [
+    (Byte,          "inventory_type"),
+    (String,        "window_title"),
+    (Byte,          "number_of_slots"),
+])
+register(0x65, "both", "close_window", __window)
+register(0x66, "c2s",  "click_window", __window + [
+    (Short,         "slot"),
+    (Byte,          "right_click"),
+    (Short,         "action_number"),
+    (Bool,          "shift"),
+    (Slot,          "clicked_item"),
+])
+register(0x67, "s2c",  "set_slot", __window + [
+    (Short,         "slot"),
+    (Slot,          "slot_data"),
+])
+register(0x68, "s2c",  "set_window_items", __window + [
+    (Short,         "count"),
+    (Array(Slot, "count"),
+                    "slot_data"),
+])
+register(0x69, "s2c",  "update_window_property", __window + [
+    (Short,         "property"),
+    (Short,         "value"),
+])
+register(0x6A, "both", "confirm_transaction", __window + [
+    (Short,         "action_number"),
+    (Bool,          "accepted"),
+])
+register(0x6B, "both", "creative_inventory_action", [
+    (Short,         "slot"),
+    (Slot,          "clicked_item"),
+])
+register(0x6C, "c2s",  "enchant_item", __window + [
+    (Byte,          "enchantment"),
+])
+register(0x82, "both", "update_sign", [
+    (Int,           "x"),
+    (Short,         "y"),
+    (Int,           "z"),
+    (String,        "text1"),
+    (String,        "text2"),
+    (String,        "text3"),
+    (String,        "text4"),
+])
+register(0x83, "s2c",  "item_data", [
+    (Short,         "item_type"),
+    (Short,         "item_id"),
+    (UnsignedByte,  "text_length"),
+    (Array(Byte, "text_length"),
+                    "text"),
+])
+register(0x84, "s2c",  "update_title_entity", [
+    (Int,           "x"),
+    (Short,         "y"),
+    (Int,           "z"),
+    (Byte,          "action"),
+    (Int,           "custom1"),
+    (Int,           "custom2"),
+    (Int,           "custom3"),
+])
+register(0xC8, "s2c",  "increment_statistic", [
+    (Int,           "statistic_id"),
+    (Byte,          "amount"),
+])
+register(0xC9, "s2c",  "player_list_item", [
+    (String,        "player_name"),
+    (Bool,          "online"),
+    (Short,         "ping"),
+])
+register(0xCA, "both", "player_abilities", [
+    (Bool,          "invulnerabile"),
+    (Bool,          "flying"),
+    (Bool,          "flyable"),
+    (Bool,          "instant_destroy"),
+])
+register(0xFA, "both", "plugin_message", [
+    (String,        "channel"),
+    (Short,         "length"),
+    (Array(Byte, "length"),
+                    "data")
+])
+register(0xFE, "c2s",  "server_list_ping", [])
+register(0xFF, "both", "disconnect", [(String, "reason")])
 
 

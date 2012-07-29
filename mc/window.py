@@ -17,7 +17,7 @@ layout = {
         ("armor", 4),
     ] + __self,
     CHEST: [
-        ("chest", -1), 
+        ("chest", -1),
     ] + __self,
     WORKBENCH: [
         ("crafting_output", 1),

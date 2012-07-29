@@ -22,7 +22,7 @@ class _Receiver(util.repeater):
     for handler in self.__handlers:
       if hasattr(handler, "on__packet"):
         handler.on__packet(packet)
-      method_name = "on__{}".format(packet.__class__.__name__)
+      method_name = "on__{}".format(packet.name())
       if hasattr(handler, method_name):
         getattr(handler, method_name)(packet)
     return True
@@ -43,7 +43,7 @@ class _Sender(util.repeater):
     except Queue.Empty:
       time.sleep(0.1)
     return True
-      
+
     """position_changed = self.__client.next_position != self.__client.position
     look_changed = self.__client.next_look != self.__client.look
     info = {"on_ground", self.__client.on_ground}
@@ -116,6 +116,7 @@ class Client(object):
       worker.start()
     while not self.__receiver.is_alive():
       time.sleep(1)
+    h = handshake(username_host="{};{}:{}".format(user, host, port))
     self._send(handshake(username_host="{};{}:{}".format(user, host, port)))
     self._send(login_request(version=29, username=user))
 

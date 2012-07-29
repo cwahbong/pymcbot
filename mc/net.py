@@ -19,7 +19,7 @@ class mcsocket(object):
     self.__socket.close()
 
   def sendmc(self, packet):
-    return self.__socket.send(packets.pack(packet, "c2s"))
+    return self.__socket.send(packets.pack(packet))
 
   def recvmc(self):
     try:
@@ -33,7 +33,7 @@ class mcsocket(object):
       time.sleep(0.05)
     if len(self.__buf)==0:
       return None
-    packet, size = packets.unpack(self.__buf, "s2c")
+    p, size = packets.unpack(self.__buf, "s2c")
     self.__buf = self.__buf[size:]
-    return packet
+    return p
 

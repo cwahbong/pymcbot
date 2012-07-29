@@ -1,7 +1,30 @@
-import struct 
+import struct
 
-""" byte, short, int, long, float, double, string, boolean, array, metadata, slot
-"""
+def enchantable(item_id):
+  if 256<=item_id<=259 or 267<=item_id<=279 or 283<=item_id<=286:
+    return True
+  if 290<=item_id<=294 or 298<=item_id<=317:
+    return True
+  if item_id in (261, 359, 346):
+    return True
+  return False
+
+
+class LengthType(object):
+ 
+  def __init__(self, length_info):
+    self.length_info = length_info
+
+  def _length(self, packet=None, info=None):
+    if isinstance(self.length_info, int):
+      return self.length_info
+    if packet is None and info is not None:
+      return info[self.length_info]
+    elif packet is not None and info is None:
+      return getattr(packet, self.length_info)
+    raise ValueError
+
+
 
 class Primitive(object):
   """ Base of a type that can be pack/unpack by ``struct'' module.
@@ -10,12 +33,12 @@ class Primitive(object):
   """
   format = None
 
-  def __init__(self*args, **kwargs):
+  def __init__(self, *args, **kwargs):
     raise NotImplementedError
 
   @classmethod
   def pack(cls, data, packet=None):
-    return struct.pack(cls.format, data)
+    return struct.pack(cls.format, 0 if data is None else data)
 
   @classmethod
   def unpack(cls, buf, offset=0, info=None):
@@ -81,7 +104,7 @@ class Double(Primitive):
 class String(object):
   """
   """
-  
+
   @classmethod
   def pack(cls, data, packet=None):
     data = "" if data is None else data
@@ -89,7 +112,7 @@ class String(object):
     result = Short.pack(len(data))
     result += struct.pack("!{}s".format(len(utf_data)), utf_data)
     return result
-  
+
   @classmethod
   def unpack(cls, buf, offset=0, info=None):
     length, offset = Short.unpack(buf, offset)
@@ -100,47 +123,108 @@ class String(object):
     return result, offset
 
 
-class Array(object):
+class Array(LengthType):
 
   def __init__(self, elem_type, length_info):
+    super(Array, self).__init__(length_info)
     self.elem_type = elem_type
-    self.length_info = length_info
-
-  def __length(self, packet=None, info=None):
-    if isinstance(self.length_info, int):
-      return self.length_info
-    if packet is None and info is not None:
-      return info[self.length_info]
-    elif packet is not None and info is None:
-      return getattr(packet, self.length_info)
-    raise ValueError
 
   def pack(self, data, packet=None):
     """ Will use packet to check the length of the data.
     """
-    if packet is not None and len(data) != __length(packet):
+    if packet is not None and len(data) != self._length(packet=packet):
       raise ValueError("Length of array is not correct.")
     for elem in data:
       self.elem_type.pack(elem)
 
   def unpack(self, buf, offset=0, info={}):
-    for _ in range(self.__length(info)):
-      self.elem_type.unpack(self, buf, offset)
+    result = []
+    for _ in range(self._length(info=info)):
+      elem, offset = self.elem_type.unpack(buf, offset, info)
+      result += elem
+    return result, offset
 
 
 class Object(object):
-  pass
+
+  @classmethod
+  def pack(cls, data, packet=None):
+    raise NotImplementedError
+
+  @classmethod
+  def unpack(cls, buf, offset=0, info={}):
+    result = {}
+    not_none, offset = Int.unpack(buf, offset, info)
+    if not_none:
+      result["meta"] = not_none # TODO change "meta" to the aprropriate type by "info"
+      result["speed_x"], offset = Short.unpack(buf, offset, info)
+      result["speed_y"], offset = Short.unpack(buf, offset, info)
+      result["speed_z"], offset = Short.unpack(buf, offset, info)
+    return result, offset
 
 
 class MetaData(object):
-  pass
+  __types = [Byte, Short, Int, Float, String]
 
+  @classmethod
+  def pack(cls, data, packet=None):
+    raise NotImplementedError
+
+  @classmethod
+  def unpack(cls, buf, offset=0, info={}):
+    result = {}
+    x, offset = UnsignedByte.unpack(buf, offset, info)
+    while x != 127:
+      index, type = x & 0x1F, x>>5
+      if 0 <= type < len(cls.__types):
+        value, offset = cls.__types[type].unpack(buf, offset, info)
+      else:
+        raise ValueError("Invalid metadata with type={}".format(type))
+      result[index] = (cls.__types[type], value)
+      x, offset = UnsignedByte.unpack(buf, offset, info)
+    return result, offset
 
 class Slot(object):
-  pass
+
+  @classmethod
+  def pack(cls, data, packet=None):
+    if data is None or data["id"]==-1:
+      result = Short.pack(-1, packet)
+    else:
+      result = Short.pack(data["id"])
+      result += Byte.pack(data["count"])
+      result += Short.pack(data["meta"])
+      if enchantable(data["id"]):
+        raise NotImplementedError
+    return result
+
+  @classmethod
+  def unpack(cls, buf, offset=0, info={}):
+    result = {}
+    result["id"], offset = Short.unpack(buf, offset, info)
+    if result["id"]!=-1:
+      result["count"], offset = Byte.unpack(buf, offset, info)
+      result["meta"], offset = Short.unpack(buf, offset, info)
+      if enchantable(result["id"]):
+        result["data_length"], offset = Short.unpack(buf, offset, info)
+        if result["data_length"]!=-1:
+          result["data"], offset = Array(Byte, result["data_length"]).unpack(buf, offset, info)
+    return result, offset
 
 
-class Record(object):
-  pass
+class MultiBlockRecord(LengthType):
+
+  def __init__(self, length_info):
+    super(MultiBlockRecord, self).__init__(length_info)
+
+  def unpack(self, buf, offset=0, info={}):
+    raise NotImplementedError
+
+
+class ExplosionRecord(object):
+
+  @classmethod
+  def unpack(cls, buf, offset=0, info={}):
+    raise NotImplementedError
 
 
