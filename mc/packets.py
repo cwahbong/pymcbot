@@ -43,7 +43,7 @@ def pack(packet):
   return result
 
 
-def unpack(rawstring, direction, offset=0):
+def unpack(rawstring, direction="s2c", offset=0):
     id, offset = UnsignedByte.unpack(rawstring, offset)
     field_info = {}
     for field_type, field_name in _fields[direction][id]:
