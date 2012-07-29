@@ -51,7 +51,7 @@ def pack(packet, direction):
 
 def unpack(rawstring, direction):
   pack_id, offset = util.unpack_from_single("B", rawstring)
-  if 0x00 <= pack_id==0x03:
+  if 0x00 <= pack_id==0x03 or pack_id==0x33:
     return mc.packet.unpack(rawstring, direction)
   pack_class = _get_packet_class(pack_id)
   #print "= unpacking ", pack_class.__name__
