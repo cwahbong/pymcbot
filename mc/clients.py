@@ -71,9 +71,9 @@ class Client(object):
 
   def __init__(self, packet_handlers = []):
     packet_handlers += [
-        handlers.keep_alive(self),
-        handlers.position_look(self),
-        handlers.slot(self),
+        handlers.KeepAlive(self),
+        handlers.PositionLook(self),
+        handlers.Slot(self),
         handlers.Window(self)
     ]
     self.__socket = net.mcsocket()
@@ -89,8 +89,6 @@ class Client(object):
     self.entities = []
     self.inventory = []
     self.holds = []
-    # self.next_position = {}
-    # self.next_look = {}
     self.window_id = 0
     self.window_type = -1
     self.other_size = 0
@@ -116,7 +114,6 @@ class Client(object):
       worker.start()
     while not self.__receiver.is_alive():
       time.sleep(1)
-    h = handshake(username_host="{};{}:{}".format(user, host, port))
     self._send(handshake(username_host="{};{}:{}".format(user, host, port)))
     self._send(login_request(version=29, username=user))
 
@@ -127,7 +124,15 @@ class Client(object):
       worker.join()
     self.__socket.close()
 
-  def next_look_position(self, position={}, look={}):
+  def _update_position_look(self, x, y, z, yaw, pitch):
+    self.position["x"] = x
+    self.position["y"] = y
+    self.position["z"] = z
+    self.look["yaw"] = yaw
+    self.look["pitch"] = pitch
+
+
+  def next_position_look(self, position={}, look={}):
     info = dict(position)
     info.update(look)
     if position:
@@ -140,9 +145,11 @@ class Client(object):
         packet = player_look(**info)
       else:
         raise ValueError
-    ## will let position_look_updater dealing with this.
-    #self.__next_look_position.enqueue
-    # self._send(packet)
+    self._update_position_look(
+        position["x"], position["y"], position["z"],
+        look["yaw"], look["pitch"]
+    )
+    self._send(packet)
 
   def drop(self, **info):
     packet_info = dict(info)
@@ -153,7 +160,6 @@ class Client(object):
       packet_info = dict(info)
       packet_info["status"] = 0
       self._send(player_digging(**packet_info))
-      # TODO sleep a while
       time.sleep(wait)
       packet_info["status"] = 2
       self._send(player_digging(**packet_info))
@@ -187,7 +193,7 @@ class Client(object):
 
   def _confirm_transaction(self, action_number):
     time.sleep(0.1)
-    pass
+    # TODO
 
   def _update_slots(self, where, where_id, right):
     def swap():

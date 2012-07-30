@@ -1,24 +1,29 @@
 from mc import window
 
-class handler(object):
+class Handler(object):
 
   def __init__(self, robot):
     self._robot = robot
 
 
-class keep_alive(handler):
+class KeepAlive(Handler):
 
   def on__keep_alive(self, packet):
     self._robot._send(packet)
     print "keep alive"
 
 
-class position_look(handler):
+class PositionLook(Handler):
 
-  pass
+  def on__player_position_look(self, packet):
+    self._robot._send(packet)
+    self._robot._update_position_look(
+        packet.x, packet.y, packet.z,
+        packet.yaw, packet.pitch
+    )
 
 
-class slot(handler):
+class Slot(Handler):
 
   def on__set_slot(self, packet):
     if packet.window_id==-1 and packet.slot==-1:
@@ -41,7 +46,7 @@ class slot(handler):
       idx += num
 
 
-class Window(handler):
+class Window(Handler):
 
   def on__open_window(self, packet):
     self._robot.window_id = packet.window_id
