@@ -23,7 +23,6 @@ class Packet(object):
   
   def __init__(self, direction, name, **field_info):
     self.id = _id[name]
-    self.direction = direction
     kwset = _kwset[direction][self.id]
     for field_name, field_content in field_info.items():
       if field_name in kwset:
@@ -35,9 +34,9 @@ class Packet(object):
     return _name[self.id]
 
 
-def pack(packet):
+def pack(packet, direction="c2s"):
   result = UnsignedByte.pack(packet.id)
-  for field_type, field_name in _fields[packet.direction][packet.id]:
+  for field_type, field_name in _fields[direction][packet.id]:
     field_content = getattr(packet, field_name, None)
     result += field_type.pack(field_content)
   return result
