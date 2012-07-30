@@ -141,7 +141,7 @@ class Array(LengthType):
     result = []
     for _ in range(self._length(info=info)):
       elem, offset = self.elem_type.unpack(buf, offset, info)
-      result += elem
+      result.append(elem)
     return result, offset
 
 
