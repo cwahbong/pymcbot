@@ -214,10 +214,6 @@ register(0x17, "s2c",  "spawn_object_vehicle", __entity + [
     (Int,           "z"),
     (Object,        "additional_data"),
 ])
-"""(Int,         "fireball_thrower_eid"),
-(("h", "?fireball_thrower_eid"), "sx"),
-(("h", "?fireball_thrower_eid"), "sy"),
-(("h", "?fireball_thrower_eid"), "sz"),"""
 register(0x18, "s2c",  "spawn_mob", __entity + [
     (Byte,          "type"),
     (Int,           "x"),
@@ -246,15 +242,19 @@ register(0x1C, "s2c",  "entity_velocity", __entity + [
     (Short,         "vy"),
     (Short,         "vz"),
 ])
-register(0x1D, "s2c",  "destroy_entity", __entity)
+register(0x1D, "s2c",  "destroy_entity", [
+    (Byte,          "count"),
+    (Array(Int, "count"),
+                    "eids",
+])
 register(0x1E, "s2c",  "entity",  __entity)
 register(0x1F, "s2c",  "entity_relative_move", __entity + __entity_relative_move)
 register(0x20, "s2c",  "entity_look", __entity + __entity_look)
 register(0x21, "s2c",  "entity_relative_move_look", __entity + __entity_relative_move + __entity_look)
 register(0x22, "s2c",  "entity_teleport", __entity + [
-    (Int, "x"),
-    (Int, "y"),
-    (Int, "z"),
+    (Int,           "x"),
+    (Int,           "y"),
+    (Int,           "z"),
 ] + __entity_look)
 register(0x23, "s2c",  "entity_head_look", __entity + [(Byte, "head_yaw")])
 register(0x26, "s2c",  "entity_status", __entity + [(Byte, "entity_statys")])
