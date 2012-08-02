@@ -1,24 +1,12 @@
+import sys
+from mc import util
+
 """ We define the name and type id of mobs here.
 """
 
-__name = {}
-__type_id = {}
+__id_manager = util.IdManager(sys.modules[__name__])
 
-def name(type_id):
-  return __name[type_id]
-
-def type_id(name):
-  return __type_id[name]
-
-def register(type_id, name):
-  __name[type_id] = name
-  __type_id[name] = type_id
-
-def list_register(tuple_list):
-  for t in tuple_list:
-    register(*t)
-
-list_register([
+__id_manager.list_register([
     (50, "creeper"),
     (51, "skeleton"),
     (52, "spider"),
