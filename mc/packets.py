@@ -245,7 +245,7 @@ register(0x1C, "s2c",  "entity_velocity", __entity + [
 register(0x1D, "s2c",  "destroy_entity", [
     (Byte,          "count"),
     (Array(Int, "count"),
-                    "eids",
+                    "eids"),
 ])
 register(0x1E, "s2c",  "entity",  __entity)
 register(0x1F, "s2c",  "entity_relative_move", __entity + __entity_relative_move)
