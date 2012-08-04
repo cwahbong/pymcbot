@@ -71,7 +71,7 @@ class Client(object):
 
   def __init__(self, packet_handlers = []):
     packet_handlers += [
-        handlers.KeepAlive(self),
+        handlers.Connection(self),
         handlers.PositionLook(self),
         handlers.Slot(self),
         handlers.Window(self)

@@ -6,11 +6,14 @@ class Handler(object):
     self._client = client
 
 
-class KeepAlive(Handler):
+class Connection(Handler):
 
   def on__keep_alive(self, packet):
     self._client._send(packet)
     print "keep alive"
+
+  def on__disconnect(self, packet):
+    print "Disconnect, reason:", packet.reason
 
 
 class PositionLook(Handler):
