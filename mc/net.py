@@ -6,6 +6,7 @@ from mc import packets
 
 
 class mcsocket(object):
+  threshold = 8192
   max_fetch = 16384
 
   def __init__(self):
@@ -23,13 +24,15 @@ class mcsocket(object):
     return self.__socket.send(packets.pack(packet))
 
   def recvmc(self):
-    if len(self.__buf)==0:
-      self.__buf += self.__socket.recv(self.max_fetch)
-    if len(self.__buf)==0:
-      return None
-    p, size = packets.unpack(self.__buf)
-    self.__buf = self.__buf[size:]
-    if p.id==51:
-      print p.__dict__, len(self.__buf)
-    return p
+    while True:
+      try:
+        if len(self.__buf)<self.threshold:
+          self.__buf += self.__socket.recv(self.max_fetch)
+        if len(self.__buf)==0:
+          return None
+        p, size = packets.unpack(self.__buf)
+        self.__buf = self.__buf[size:]
+        return p
+      except Exception as e:
+        pass
 

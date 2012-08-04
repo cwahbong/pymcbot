@@ -46,8 +46,12 @@ def unpack(rawstring, direction="s2c", offset=0):
     id, offset = UnsignedByte.unpack(rawstring, offset)
     field_info = {}
     for field_type, field_name in _fields[direction][id]:
-      field_content, offset = field_type.unpack(rawstring, offset, field_info)
-      field_info[field_name] = field_content
+      try:
+        field_content, offset = field_type.unpack(rawstring, offset, field_info)
+        field_info[field_name] = field_content
+      except Exception as e:
+        print "Unpack error, packet type: {}, field: {}.".format(id, field_name)
+        raise e
     return Packet(direction, _name[id], **field_info), offset
 
 
@@ -103,8 +107,7 @@ register(0x03, "both", "chat_message", [(String, "message")])
 register(0x04, "both", "time_update", [(Long, "time")])
 register(0x05, "s2c",  "entity_equipment", __entity + [
     (Short,         "slot"),
-    (Short,         "item_id"),
-    (Short,         "damage"),
+    (Slot,          "item"),
 ])
 register(0x06, "s2c",  "spawn_position", [
     (Int,           "x"),
