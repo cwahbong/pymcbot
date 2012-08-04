@@ -282,7 +282,7 @@ register(0x32, "s2c",  "map_column_allocation", [
 register(0x33, "s2c",  "chunk_data", [
     (Int,           "x"),
     (Int,           "z"),
-    (Bool,          "ground_up_continues"),
+    (Bool,          "ground_up_continuous"),
     (UnsignedShort, "primary_bit_map"),
     (UnsignedShort, "add_bit_map"),
     (Int,           "compressed_size"),
