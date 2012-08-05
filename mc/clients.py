@@ -38,11 +38,11 @@ class _Sender(util.repeater):
 
   def repeated(self):
     try:
-      packet = self.__send_queue.get_nowait()
+      packet = self.__send_queue.get(block=True, timeout=1)
       self.__mcsocket.sendmc(packet)
       self.__send_queue.task_done()
     except Queue.Empty:
-      time.sleep(0.1)
+      pass
     return True
 
     """position_changed = self.__client.next_position != self.__client.position
