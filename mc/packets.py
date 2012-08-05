@@ -37,7 +37,7 @@ class Packet(object):
 def pack(packet, direction="c2s"):
   result = UnsignedByte.pack(packet.id)
   for field_type, field_name in _fields[direction][packet.id]:
-    field_content = getattr(packet, field_name, None)
+    field_content = getattr(packet, field_name, None) if field_name else None
     result += field_type.pack(field_content)
   return result
 
@@ -46,12 +46,9 @@ def unpack(rawstring, direction="s2c", offset=0):
     id, offset = UnsignedByte.unpack(rawstring, offset)
     field_info = {}
     for field_type, field_name in _fields[direction][id]:
-      try:
-        field_content, offset = field_type.unpack(rawstring, offset, field_info)
+      field_content, offset = field_type.unpack(rawstring, offset, field_info)
+      if field_name:
         field_info[field_name] = field_content
-      except Exception as e:
-        print "Unpack error, packet type: {}, field: {}.".format(id, field_name)
-        raise e
     return Packet(direction, _name[id], **field_info), offset
 
 
@@ -85,21 +82,21 @@ register(0x00, "both", "keep_alive", [(Int, "keepalive_id")])
 register(0x01,  "c2s", "login_request", [
     (Int,           "version"),
     (String,        "username"),
-    (String,        ""),
-    (Int,           ""),
-    (Int,           ""),
-    (Byte,          ""),
-    (UnsignedByte,  ""),
-    (UnsignedByte,  ""),
+    (String,        None),
+    (Int,           None),
+    (Int,           None),
+    (Byte,          None),
+    (UnsignedByte,  None),
+    (UnsignedByte,  None),
 ])
 register(0x01,  "s2c", "login_request",  __entity + [
-    (String,        ""),
+    (String,        None),
     (String,        "level_type"),
     (Int,           "server_mode"),
     (Int,           "dimension"),
     (Byte,          "difficulty"),
-    (UnsignedByte,  ""),
-    (UnsignedByte,  ""),
+    (UnsignedByte,  None),
+    (UnsignedByte,  None),
 ])
 register(0x02, "c2s",  "handshake", [(String, "username_host")])
 register(0x02, "s2c",  "handshake", [(String, "connection_hash")])
@@ -175,7 +172,7 @@ register(0x0F, "c2s",  "player_block_placement", [
 ])
 register(0x10, "c2s",  "held_item_change", [(Short, "slot_id")])
 register(0x11, "s2c",  "use_bed", __entity + [
-    (Byte,          ""), # unknown
+    (Byte,          None), # unknown
     (Int,           "x"),
     (Byte,          "y"),
     (Int,           "z"),
@@ -286,7 +283,7 @@ register(0x33, "s2c",  "chunk_data", [
     (UnsignedShort, "primary_bit_map"),
     (UnsignedShort, "add_bit_map"),
     (Int,           "compressed_size"),
-    (Int,           ""),
+    (Int,           None),
     (Array(UnsignedByte, "compressed_size"),
                     "compressed_data"),
 ])
@@ -332,7 +329,7 @@ register(0x46, "s2c",  "change_game_state", [
     (Byte,          "game_mode"),
 ])
 register(0x47, "s2c",  "thunderbolt", __entity + [
-    (Byte,          ""),
+    (Byte,          None),
     (Int,           "x"),
     (Int,           "y"),
     (Int,           "z"),
