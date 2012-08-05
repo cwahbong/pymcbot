@@ -2,6 +2,7 @@ import time
 import Queue
 
 from mc import net
+from mc import map
 from mc import handlers
 from mc.packets import *
 from mc import util
@@ -94,6 +95,7 @@ class Client(object):
     self.other_size = 0
     self.main_inventory = None
     self.held_slot = 0
+    self.map = map.World()
     # self._slots = None
     self._mouse_hold = {"id": -1}
     self._tid = 1
