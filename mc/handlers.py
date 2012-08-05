@@ -18,11 +18,23 @@ class Connection(Handler):
 
 class PositionLook(Handler):
 
+  def on__spawn_position(self, packet):
+    self._client.next_position_look(position={
+        "x": packet.x,
+        "y": packet.y,
+        "z": packet.z,
+        "stance": 0.1,
+    }, look={
+        "yaw": 0.0,
+        "pitch": 0.0,
+    }, on_ground=True)
+    print "Spawn at ({}, {}, {})".format(packet.x, packet.y, packet.z)
+
   def on__player_position_look(self, packet):
     self._client._send(packet)
     self._client._update_position_look(
-        packet.x, packet.y, packet.z,
-        packet.yaw, packet.pitch
+        packet.x, packet.y, packet.z, packet.stance,
+        packet.yaw, packet.pitch, packet.on_ground
     )
 
 

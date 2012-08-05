@@ -85,8 +85,8 @@ class Client(object):
         self.__sender,
     ]
     self.on_ground = True
-    self.position = {}
-    self.look = {}
+    self.position = {"x": None, "y": None, "z": None}
+    self.look = {"yaw": None, "pitch": None}
     self.entities = []
     self.inventory = []
     self.holds = []
@@ -126,17 +126,19 @@ class Client(object):
       worker.join()
     self.__socket.close()
 
-  def _update_position_look(self, x, y, z, yaw, pitch):
+  def _update_position_look(self, x, y, z, stance, yaw, pitch, on_ground):
     self.position["x"] = x
     self.position["y"] = y
     self.position["z"] = z
+    self.position["stance"] = stance
     self.look["yaw"] = yaw
     self.look["pitch"] = pitch
+    self.on_ground = on_ground
 
-
-  def next_position_look(self, position={}, look={}):
+  def next_position_look(self, position={}, look={}, on_ground=True):
     info = dict(position)
     info.update(look)
+    info.update({"on_ground": on_ground})
     if position:
       if look:
         packet = player_position_look(**info)
@@ -147,10 +149,15 @@ class Client(object):
         packet = player_look(**info)
       else:
         raise ValueError
+    if not position:
+      position = self.position
+    if not look:
+      look = self.look
     self._update_position_look(
-        position["x"], position["y"], position["z"],
-        look["yaw"], look["pitch"]
+        position["x"], position["y"], position["z"], position["stance"],
+        look["yaw"], look["pitch"], on_ground
     )
+    print "send_position_look", packet.__dict__
     self._send(packet)
 
   def drop(self, **info):
