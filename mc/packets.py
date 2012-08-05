@@ -20,7 +20,7 @@ _id = {}
 
 
 class Packet(object):
-  
+
   def __init__(self, direction, name, **field_info):
     self.id = _id[name]
     kwset = _kwset[direction][self.id]
