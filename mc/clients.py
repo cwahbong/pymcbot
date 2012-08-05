@@ -74,6 +74,7 @@ class Client(object):
     packet_handlers += [
         handlers.Connection(self),
         handlers.PositionLook(self),
+        handlers.Blocks(self),
         handlers.Slot(self),
         handlers.Window(self)
     ]
