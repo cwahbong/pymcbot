@@ -1,7 +1,4 @@
-import re
-import struct
 import threading
-from fields import *
 
 class repeater(threading.Thread):
 
@@ -20,7 +17,6 @@ class repeater(threading.Thread):
   def stop_later(self):
     self.__stop = True
 
-import functools
 
 class IdManager(object):
 
