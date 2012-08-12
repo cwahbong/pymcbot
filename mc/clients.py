@@ -9,6 +9,18 @@ from mc import util
 from mc import window
 
 
+def ping(host, port):
+  socket = net.mcsocket()
+  socket.connect((host, port))
+  socket.sendmc(server_list_ping())
+  packet = socket.recvmc()
+  if packet.name()=="disconnect":
+    description, user_num, slot_num = packet.reason.split(u"\xa7")
+    print description, "{}/{}".format(user_num, slot_num)
+  else:
+    raise ValueError
+
+
 class _Receiver(util.repeater):
 
   def __init__(self, mcsocket, handlers=[]):
