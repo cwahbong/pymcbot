@@ -1,8 +1,12 @@
 import errno
+import logging
 import socket
 import time
 
 from mc import packets
+
+
+_logger = logging.getLogger(__name__)
 
 
 class mcsocket(object):
@@ -20,7 +24,7 @@ class mcsocket(object):
     self.__socket.close()
 
   def sendmc(self, packet):
-    print "send:", packet.name()
+    _logger.debug("Send packet, type: %s", packet.name())
     return self.__socket.send(packets.pack(packet))
 
   def recvmc(self):
@@ -34,7 +38,7 @@ class mcsocket(object):
             return None
         p, size = packets.unpack(self.__buf)
         self.__buf = self.__buf[size:]
-        print "receive:", p.name(), len(self.__buf)
+        _logger.debug("Receive packet, type: %s", p.name())
         return p
       except Exception as e:
         again = True
