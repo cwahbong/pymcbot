@@ -36,10 +36,10 @@ class mcsocket(object):
           self.__buf += self.__socket.recv(fetch)
           if len(self.__buf)==0:
             return None
-        p, size = packets.unpack(self.__buf)
+        packet, size = packets.unpack(self.__buf)
         self.__buf = self.__buf[size:]
-        _logger.debug("Receive packet, type: %s", p.name())
-        return p
+        _logger.debug("Receive packet, type: %s", packet.name())
+        return packet
       except Exception as e:
         again = True
         fetch *= 2
