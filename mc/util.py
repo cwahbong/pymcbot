@@ -1,9 +1,10 @@
+import queue
 import threading
 
-class repeater(threading.Thread):
+class Repeater(threading.Thread):
 
   def __init__(self, name=None):
-    super(repeater, self).__init__(name=name)
+    super().__init__(name=name)
     self.__stop = False
 
   def repeated(self):
@@ -12,7 +13,7 @@ class repeater(threading.Thread):
   def run(self):
     while not self.__stop and self.repeated():
       pass
-    print "{} stopped".format(self.name)
+    print("{} stopped".format(self.name))
 
   def stop_later(self):
     self.__stop = True
