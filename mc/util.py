@@ -1,22 +1,27 @@
 import queue
 import threading
 
+STOP = "stop"
+
 class Repeater(threading.Thread):
 
-  def __init__(self, name=None):
-    super().__init__(name=name)
-    self.__stop = False
-
-  def repeated(self):
-    raise NotImplementedError
+  def __init__(self, name = None):
+    super().__init__(name = name)
+    self._msg_queue = queue.Queue()
 
   def run(self):
-    while not self.__stop and self.repeated():
-      pass
+    while True:
+      if not self._msg_queue.empty():
+        cmd, content = self._msg_queue.get()
+        if cmd == STOP:
+          break
+        self.runcmd(cmd, content)
+      else:
+        self.noncmd()
     print("{} stopped".format(self.name))
 
   def stop_later(self):
-    self.__stop = True
+    self._msg_queue.put((STOP, None))
 
 
 class IdManager(object):

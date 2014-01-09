@@ -30,25 +30,32 @@ class Packet:
         raise ValueError("``{}'' is not a valid field name.".format(fname))
 
   def name(self):
-    return _name_by_id[self.id]
+    return _name[self.pid]
 
 
 def pack(packet, direction, state):
-  result = VarInt.pack(packet.pid)
+  p = VarInt.pack(packet.pid)
   for ftype, fname in _fields[direction, state][packet.pid]:
     fcontent = getattr(packet, fname, None) if fname else None
-    result += ftype.pack(fcontent)
+    p += ftype.pack(fcontent)
+  result = VarInt.pack(len(p)) + p
+  print("Packed:", result)
   return result
 
 def unpack(raw, direction, state, offset = 0):
-  id, offset = VarInt.unpack(raw, offset)
-  raise NotImplementedError
-  return Packet(), offset
+  plen, offset = VarInt.unpack(raw, offset)
+  pid, offset = VarInt.unpack(raw, offset)
+  finfo = dict()
+  for ftype, fname in _fields[direction, state][pid]:
+    fcontent, offset = ftype.unpack(raw, offset, finfo)
+    if fname:
+      finfo[fname] = fcontent
+  return Packet(direction, state, _name[pid], **finfo), offset
 
 def register(direction, state, *type_infos):
   for type_info in type_infos:
     pid, name, fields = type_info
-    _fields[direction, state][pid] = dict(fields)
+    _fields[direction, state][pid] = fields
     _kwset[direction, state][pid] = set(map(lambda p: p[1], fields))
     _name[pid] = name
     _pid[name] = pid

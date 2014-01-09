@@ -11,7 +11,7 @@ def enchantable(item_id):
 
 
 class LengthType(object):
- 
+
   def __init__(self, length_info):
     self.length_info = length_info
 
@@ -24,6 +24,35 @@ class LengthType(object):
       return getattr(packet, self.length_info)
     raise ValueError
 
+
+class VarInt(object):
+
+  def __init__(self):
+    raise NotImplementedError
+
+  @classmethod
+  def pack(cls, data, packet = None):
+    n, m = divmod(data, 128)
+    nums = [m]
+    while n:
+      n, m = divmod(n, 128)
+      nums.append(m)
+    masked = list(map(lambda n: n | 128, nums[:-1])) + nums[-1:]
+    return bytes(masked)
+
+  @classmethod
+  def unpack(cls, buf, offset = 0, info = None):
+    nums = []
+    while True:
+      b = buf[offset]
+      offset += 1
+      nums.append(b & 0x7F)
+      if b & 0x80 == 0:
+        break
+    result = 0
+    for n in reversed(nums):
+      result = 128 * result + n
+    return result, offset
 
 
 class Primitive(object):
@@ -102,24 +131,25 @@ class Double(Primitive):
 
 
 class String(object):
-  """
+  """ UTF8 string prefixed with its byte length (VarInt)
   """
 
   @classmethod
   def pack(cls, data, packet=None):
     data = "" if data is None else data
-    utf_data = data.encode("utf_16_be")
-    result = Short.pack(len(data))
-    result += struct.pack("!{}s".format(len(utf_data)), utf_data)
+    utf = data.encode()
+    utf_len = len(utf)
+    result = VarInt.pack(utf_len)
+    result += struct.pack("!{}s".format(utf_len), utf)
     return result
 
   @classmethod
   def unpack(cls, buf, offset=0, info=None):
-    length, offset = Short.unpack(buf, offset)
-    utf_length = len((" "*length).encode("utf_16_be"))
-    utf_data = struct.unpack_from("!{}s".format(utf_length), buf, offset)[0]
-    result = utf_data.decode("utf_16_be")
-    offset += utf_length
+    utf_len, offset = VarInt.unpack(buf, offset)
+    print("utf len:", utf_len)
+    utf = struct.unpack_from("!{}s".format(utf_len), buf, offset)[0]
+    result = utf.decode()
+    offset += utf_len
     return result, offset
 
 

@@ -2,7 +2,6 @@ import errno
 import logging
 import queue
 import socket
-import time
 
 from mc.packet import v172 as packets
 from mc import util
@@ -12,24 +11,26 @@ _logger = logging.getLogger(__name__)
 PACKET = "packet"
 SET_STATE = "set_state"
 
+PAUSE_RECV = "pause_recv"
+
 class _McSender(util.Repeater):
 
   def __init__(self, socket):
     super().__init__("Sender")
     self._socket = socket
-    self._queue = queue.Queue()
     self._state = packets.START_STATE
 
-  def repeated(self):
-    if self._queue:
-      cmd, content = self._queue.get()
-      if cmd == SET_STATE:
-        self._state = content
-      elif cmd == PACKET:
-        raw = packets.pack(content, packets.CLIENT_TO_SERVER, self._state)
-        r = self._socket.send(raw)
-        if r != len(raw):
-          _logger.warning("Num of bytes sent != length or data.")
+  def runcmd(self, cmd, content):
+    if cmd == SET_STATE:
+      self._state = content
+    elif cmd == PACKET:
+      raw = packets.pack(content, packets.CLIENT_TO_SERVER, self._state)
+      r = self._socket.send(raw)
+      if r != len(raw):
+        _logger.warning("Num of bytes sent != length or data.")
+
+  def noncmd(self):
+    pass
 
 
 class _McRecver(util.Repeater):
@@ -37,24 +38,44 @@ class _McRecver(util.Repeater):
 
   def __init__(self, socket):
     super().__init__("Recver")
-    self._again = False
-    self._buf = ""
+    self._need_more = False
+    self._pause = True
+    self._buf = bytearray()
     self._socket = socket
-    self._queue = queue.Queue()
+    self._state = packets.START_STATE
+    self._packet_queue = queue.Queue()
 
-  def repeated(self):
-    if self._buf == 0:
-      self._buf += self._socket.recv(self.fetch)
-    try:
-      packet, size = packets.unpack(self._buf)
-      self._buf = self._buf[size:]
-      _self._queue.put(packet)
-      _logger.debug("Receive packet, type: %s", packet.name())
-    except Exception as e:
-      print(Exception)
+  def runcmd(self, cmd, content):
+    if cmd == SET_STATE:
+      self._state = content
+      print("Recver new state: {}".format(self._state))
+    elif cmd == PAUSE_RECV:
+      self._pause = content
+      print("Recver pause: {}".format(self._pause))
+    else:
+      raise ValueError("cmd error in recver")
+
+  def noncmd(self):
+    if self._pause:
+      return
+    if self._need_more or len(self._buf) == 0:
+      try:
+        self._buf += self._socket.recv(self.fetch)
+      except socket.error as e:
+        if e.args[0] != errno.EAGAIN:
+          raise e
+    if len(self._buf) > 0:
+      try:
+        packet, size = packets.unpack(self._buf, packets.SERVER_TO_CLIENT, self._state)
+        self._buf = self._buf[size:]
+        self._packet_queue.put(packet)
+        self._need_more = False
+        _logger.debug("Receive packet, type: %s", packet.name())
+      except Exception as e:
+        self._need_more = True
+        raise e
 
 class Connector:
-  origin_fetch = 16
 
   def __init__(self):
     self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -63,6 +84,7 @@ class Connector:
 
   def connect(self, address):
     self._socket.connect(address)
+    self._socket.setblocking(False)
     self._sender.start()
     self._recver.start()
 
@@ -77,10 +99,13 @@ class Connector:
     self._socket.close()
 
   def set_state(self, state):
-    self._sender._queue.put((SET_STATE, state))
+    self._sender._msg_queue.put((SET_STATE, state))
+    self._recver._msg_queue.put((PAUSE_RECV, True))
+    self._recver._msg_queue.put((SET_STATE, state))
+    self._recver._msg_queue.put((PAUSE_RECV, False))
 
   def send_later(self, packet):
-    self._sender._queue.put((PACKET, packet))
+    self._sender._msg_queue.put((PACKET, packet))
 
   def pop_packet(self):
-    return self._recver._queue.get()
+    return self._recver._packet_queue.get()
