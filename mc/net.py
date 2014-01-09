@@ -1,4 +1,5 @@
 import errno
+import json
 import logging
 import queue
 import socket
@@ -109,3 +110,22 @@ class Connector:
 
   def pop_packet(self):
     return self._recver._packet_queue.get()
+
+
+def ping(host, port):
+  connector = Connector()
+  connector.connect((host, port))
+
+  connector.send_later(packets.handshake(
+      version = 4,
+      address = host,
+      port = port,
+      state = packets.STATUS_STATE
+  ))
+  connector.set_state(packets.STATUS_STATE)
+
+  connector.send_later(packets.status_request())
+  response = connector.pop_packet()
+
+  connector.disconnect()
+  return json.loads(response.json_response)
