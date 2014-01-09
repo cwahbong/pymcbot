@@ -8,8 +8,8 @@ CLIENT_TO_SERVER = 0
 SERVER_TO_CLIENT = 1
 
 START_STATE   = 0
-LOGIN_STATE   = 1
-STATUS_STATE  = 2
+STATUS_STATE  = 1
+LOGIN_STATE   = 2
 PLAY_STATE    = 3
 
 _fields = collections.defaultdict(dict)
