@@ -1,5 +1,8 @@
+import logging
 import queue
 import threading
+
+_logger = logging.getLogger(__name__)
 
 STOP = "stop"
 
@@ -18,7 +21,7 @@ class Repeater(threading.Thread):
         self.runcmd(cmd, content)
       else:
         self.noncmd()
-    print("{} stopped".format(self.name))
+    _logger.info("Thread stopped.".format(self.name))
 
   def stop_later(self):
     self._msg_queue.put((STOP, None))
@@ -48,3 +51,20 @@ class IdManager(object):
       self.register(*t)
 
 
+def logConfig(filename = None, stream = None):
+  logger = logging.getLogger()
+  logger.setLevel(logging.DEBUG)
+  formatter = logging.Formatter(
+      "%(asctime)s - %(levelname)s - T\"%(threadName)s\""
+      " - M\"%(module)s\" - %(message)s"
+  )
+  if filename is not None:
+    fileHandler = logging.FileHandler(filename)
+    fileHandler.setLevel(logging.DEBUG)
+    fileHandler.setFormatter(formatter)
+    logger.addHandler(fileHandler)
+  if stream is not None:
+    streamHandler = logging.StreamHandler(stream)
+    streamHandler.setLevel(logging.WARNING)
+    streamHandler.setFormatter(formatter)
+    logger.addHandler(streamHandler)

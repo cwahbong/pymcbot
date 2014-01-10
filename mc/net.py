@@ -1,6 +1,7 @@
 import errno
 import json
 import logging
+import os
 import queue
 import socket
 
@@ -49,10 +50,10 @@ class _McRecver(util.Repeater):
   def runcmd(self, cmd, content):
     if cmd == SET_STATE:
       self._state = content
-      print("Recver new state: {}".format(self._state))
+      _logger.debug("Recver new state: {}.".format(self._state))
     elif cmd == PAUSE_RECV:
       self._pause = content
-      print("Recver pause: {}".format(self._pause))
+      _logger.debug("Recver pause: {}.".format(self._pause))
     else:
       raise ValueError("cmd error in recver")
 
@@ -84,10 +85,15 @@ class Connector:
     self._recver = _McRecver(self._socket)
 
   def connect(self, address):
-    self._socket.connect(address)
-    self._socket.setblocking(False)
-    self._sender.start()
-    self._recver.start()
+    try:
+      self._socket.connect(address)
+      self._socket.setblocking(False)
+      self._sender.start()
+      self._recver.start()
+    except socket.error as e:
+      _logger.error("Socket: {}.".format(os.strerror(e.args[0])))
+      return False
+    return True
 
   def disconnect(self):
     self._sender.stop_later()
@@ -114,7 +120,10 @@ class Connector:
 
 def ping(host, port):
   connector = Connector()
-  connector.connect((host, port))
+
+  connected = connector.connect((host, port))
+  if not connected:
+    return None
 
   connector.send_later(packets.handshake(
       version = 4,

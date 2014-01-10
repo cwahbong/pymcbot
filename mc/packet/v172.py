@@ -39,7 +39,6 @@ def pack(packet, direction, state):
     fcontent = getattr(packet, fname, None) if fname else None
     p += ftype.pack(fcontent)
   result = VarInt.pack(len(p)) + p
-  print("Packed:", result)
   return result
 
 def unpack(raw, direction, state, offset = 0):

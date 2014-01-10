@@ -146,7 +146,6 @@ class String(object):
   @classmethod
   def unpack(cls, buf, offset=0, info=None):
     utf_len, offset = VarInt.unpack(buf, offset)
-    print("utf len:", utf_len)
     utf = struct.unpack_from("!{}s".format(utf_len), buf, offset)[0]
     result = utf.decode()
     offset += utf_len
