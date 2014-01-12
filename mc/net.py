@@ -90,6 +90,12 @@ class Connector:
     self._sender = _McSender(self._socket)
     self._recver = _McRecver(self._socket)
 
+  def __enter__(self):
+    return self
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    self.disconnect()
+
   def connect(self, address):
     try:
       self._socket.connect(address)
@@ -169,13 +175,14 @@ def login(host, port, username):
   ))
   connector.recv_later(1)
   packet = connector.pop_packet()
+  encrypted = False
   if packet._name == "encryption_request":
     _logger.warning("Encryption not supported.")
-    connector.disconnect()
-    return None
+    encrypted = True
   elif packet._name == "login_success":
     _logger.info("User {} loged in.".format(username))
-    return connector
   else:
     _logger.error("Unexpected packet type: {}.".format(packet._name))
-    return None
+    raise ValueError("Unexpected packet type.")
+  connector.set_state(packets.PLAY_STATE)
+  return connector, encrypted

@@ -6,9 +6,10 @@ import sys
 def main(args):
   util.logConfig(args.filelog, sys.stderr)
 
-  connector = net.login(args.host, args.port, args.username)
-  if connector:
-    connector.disconnect()
+  connector, encrypted = net.login(args.host, args.port, args.username)
+  print("Encrypted: {}".format(encrypted))
+  with connector:
+    pass
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
