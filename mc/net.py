@@ -125,7 +125,7 @@ def ping(host, port):
   if not connected:
     return None
 
-  connector.send_later(packets.handshake(
+  connector.send_later(packets.cs_handshake(
       version = 4,
       address = host,
       port = port,
@@ -133,7 +133,7 @@ def ping(host, port):
   ))
   connector.set_state(packets.STATUS_STATE)
 
-  connector.send_later(packets.status_request())
+  connector.send_later(packets.cs_status_request())
   response = connector.pop_packet()
 
   connector.disconnect()

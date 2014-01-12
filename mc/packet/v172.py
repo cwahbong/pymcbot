@@ -7,6 +7,11 @@ import sys
 CLIENT_TO_SERVER = 0
 SERVER_TO_CLIENT = 1
 
+_pre = {
+    CLIENT_TO_SERVER: "cs_",
+    SERVER_TO_CLIENT: "sc_",
+}
+
 START_STATE   = 0
 STATUS_STATE  = 1
 LOGIN_STATE   = 2
@@ -58,7 +63,7 @@ def register(direction, state, *type_infos):
     _kwset[direction, state][pid] = set(map(lambda p: p[1], fields))
     _name[pid] = name
     _pid[name] = pid
-    setattr(sys.modules[__name__], name, functools.partial(
+    setattr(sys.modules[__name__], _pre[direction] + name, functools.partial(
         Packet,
         direction,
         state,
