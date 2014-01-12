@@ -20,27 +20,25 @@ PLAY_STATE    = 3
 _fields = collections.defaultdict(dict)
 _kwset = collections.defaultdict(dict)
 
-_name = dict()
-_pid = dict()
+_name = collections.defaultdict(dict)
+_pid = collections.defaultdict(dict)
 
 class Packet:
 
   def __init__(self, packet_direction, packet_state, packet_name, **field_info):
-    self.pid = _pid[packet_name]
-    kwset = _kwset[packet_direction, packet_state][self.pid]
+    self._pid = _pid[packet_direction, packet_state][packet_name]
+    self._name = packet_name
+    kwset = _kwset[packet_direction, packet_state][self._pid]
     for fname, fcontent in field_info.items():
       if fname in kwset:
         setattr(self, fname, fcontent)
       else:
         raise ValueError("``{}'' is not a valid field name.".format(fname))
 
-  def name(self):
-    return _name[self.pid]
-
 
 def pack(packet, direction, state):
-  p = VarInt.pack(packet.pid)
-  for ftype, fname in _fields[direction, state][packet.pid]:
+  p = VarInt.pack(packet._pid)
+  for ftype, fname in _fields[direction, state][packet._pid]:
     fcontent = getattr(packet, fname, None) if fname else None
     p += ftype.pack(fcontent)
   result = VarInt.pack(len(p)) + p
@@ -54,15 +52,15 @@ def unpack(raw, direction, state, offset = 0):
     fcontent, offset = ftype.unpack(raw, offset, finfo)
     if fname:
       finfo[fname] = fcontent
-  return Packet(direction, state, _name[pid], **finfo), offset
+  return Packet(direction, state, _name[direction, state][pid], **finfo), offset
 
 def register(direction, state, *type_infos):
   for type_info in type_infos:
     pid, name, fields = type_info
     _fields[direction, state][pid] = fields
     _kwset[direction, state][pid] = set(map(lambda p: p[1], fields))
-    _name[pid] = name
-    _pid[name] = pid
+    _name[direction, state][pid] = name
+    _pid[direction, state][name] = pid
     setattr(sys.modules[__name__], _pre[direction] + name, functools.partial(
         Packet,
         direction,
@@ -80,15 +78,6 @@ register(CLIENT_TO_SERVER, START_STATE,
     ]),
 )
 
-"""
-register(CLIENT_TO_SERVER, PLAY_STATE,
-  # TODO
-)
-
-register(SERVER_TO_CLIENT, PLAY_STATE,
-  # TODO
-)
-"""
 register(CLIENT_TO_SERVER, STATUS_STATE,
     (0x00, "status_request", []),
     (0x01, "ping", [
@@ -102,5 +91,38 @@ register(SERVER_TO_CLIENT, STATUS_STATE,
     ]),
     (0x01, "ping", [
         (Long, "time"),
+    ]),
+)
+
+register(CLIENT_TO_SERVER, LOGIN_STATE,
+    (0x00, "login_start", [
+        (String, "name"),
+    ]),
+    (0x01, "encryption_response", [
+        (Short, "public_key_length"),
+        (Array(Byte, "public_key_length"),
+                "public_key"),
+        (Short, "token_length"),
+        (Array(Byte, "token_length"),
+                "verify_token"),
+    ]),
+)
+
+register(SERVER_TO_CLIENT, LOGIN_STATE,
+    (0x00, "disconnect", [
+        (String, "json"),
+    ]),
+    (0x01, "encryption_request", [
+        (String, "server_id"),
+        (Short, "public_key_length"),
+        (Array(Byte, "public_key_length"),
+                "public_key"),
+        (Short, "token_length"),
+        (Array(Byte, "token_length"),
+                "verity_token"),
+    ]),
+    (0x02, "login_success", [
+        (String, "uuid"),
+        (String, "username"),
     ]),
 )
