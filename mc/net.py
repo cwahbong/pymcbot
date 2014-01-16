@@ -161,7 +161,7 @@ def login(host, port, username):
 
   connected = connector.connect((host, port))
   if not connected:
-    return None
+    return None, None
 
   connector.send_later(packets.cs_handshake(
       version = 4,
