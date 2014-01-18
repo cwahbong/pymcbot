@@ -264,21 +264,3 @@ class Multi:
       value, offset = tp.unpack(buf, offset, info)
       setattr(result, name, value)
     return result, offset
-
-
-class MultiBlockRecord(LengthType):
-
-  def __init__(self, length_info):
-    super(MultiBlockRecord, self).__init__(length_info)
-
-  def unpack(self, buf, offset=0, info={}):
-    raise NotImplementedError
-
-
-class ExplosionRecord(object):
-
-  @classmethod
-  def unpack(cls, buf, offset=0, info={}):
-    raise NotImplementedError
-
-
