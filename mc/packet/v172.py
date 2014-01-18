@@ -345,12 +345,32 @@ register(SERVER_TO_CLIENT, PLAY_STATE,
         (Short, "level"),
         (Short, "total_experience"),
     ]),
-    # (0x20, "entity_properties"), [
-    #     (Int, "entity_id"),
-    #     (Int, "count"),
-        # TODO(Array(Property, "count"),
-    #         "properties"),
-    # ]),
+    (0x20, "entity_properties", [
+        (Int, "entity_id"),
+        (Int, "count"),
+        (
+            Array(
+                Multi(
+                    (String, "key"),
+                    (Double, "value"),
+                    (Short, "list_length"),
+                    (
+                        Array(
+                            Multi(
+                                (Int128, "uuid"),
+                                (Double, "amount"),
+                                (Byte, "operation"),
+                            ),
+                            "list_length",
+                        ),
+                        "modifiers",
+                    ),
+                ),
+                "count",
+            ),
+            "properties",
+        ),
+    ]),
     (0x21, "chunk_data", [
         (Int, "chunk_x"),
         (Int, "chunk_z"),

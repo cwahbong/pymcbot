@@ -133,6 +133,23 @@ class Double(Primitive):
   format = "!d"
 
 
+class Int128:
+  MAX64 = 0xFFFFFFFFFFFFFFFF
+
+  def __init__(self):
+    raise NotImplementedError
+
+  @classmethod
+  def pack(cls, data, packet=None):
+    l, r = (data >> 64) & Int128.MAX64, data & Int128.MAX64
+    return struct.pack("!QQ", l, r)
+
+  @classmethod
+  def unpack(cls, buf, offset=0, info=None):
+    l, r = struct.unpack_from("!QQ", buf, offset)
+    return l * Int128.MAX64 + r, offset + 16
+
+
 class String:
   """ UTF8 string prefixed with its byte length (VarInt)
   """
@@ -260,7 +277,9 @@ class Multi:
 
   def unpack(self, buf, offset=0, info={}):
     result = Multi.Unpacked()
+    minfo = dict(info)
     for tp, name in self._fields:
-      value, offset = tp.unpack(buf, offset, info)
+      value, offset = tp.unpack(buf, offset, minfo)
+      minfo[name] = value
       setattr(result, name, value)
     return result, offset
