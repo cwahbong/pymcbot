@@ -55,7 +55,7 @@ class _McRecver(util.Repeater):
       _logger.debug("Recver new state: {}.".format(self._state))
     elif cmd == AUTO_RECV:
       self._auto = content
-      _logger.debug("Recver auto: {}.".format(self._pause))
+      _logger.debug("Recver auto: {}.".format(self._auto))
     elif cmd == RECV:
       self._recv += content
       _logger.debug("Recv {} more packet later.".format(content))
@@ -81,7 +81,7 @@ class _McRecver(util.Repeater):
         _logger.debug("Receive packet, type: %s", packet._name)
       except Exception as e:
         self._need_more = True
-        raise e
+        _logger.warning(e)
 
 class Connector:
 
@@ -99,7 +99,7 @@ class Connector:
   def connect(self, address):
     try:
       self._socket.connect(address)
-      self._socket.setblocking(False)
+      self._socket.settimeout(1.0)
       self._sender.start()
       self._recver.start()
     except socket.error as e:
