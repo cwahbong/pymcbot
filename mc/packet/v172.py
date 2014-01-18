@@ -60,7 +60,7 @@ def unpack(raw, direction, state, offset = 0):
   plen, noffset = VarInt.unpack(raw, offset)
   size = plen + noffset
   if len(raw) < size:
-    raise struct.error("Raw data length not enought for packet.")
+    raise struct.error("Raw data length not enough for packet.")
   pid, noffset = VarInt.unpack(raw, noffset)
   if pid not in _fields[direction, state]:
     _logger.warning("Packet id {} not supported and skipped.".format(pid))
@@ -70,6 +70,12 @@ def unpack(raw, direction, state, offset = 0):
     fcontent, noffset = ftype.unpack(raw, noffset, finfo)
     if fname:
       finfo[fname] = fcontent
+  if noffset != size:
+    import binascii
+    _logger.warning("noffset != size, possibly parse incorrectly. {},"
+       "{}".format(noffset, size))
+    _logger.warning(binascii.hexlify(raw[offset:size]))
+  _logger.debug(finfo)
   return Packet(
       direction,
       state,
