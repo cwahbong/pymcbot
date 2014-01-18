@@ -195,8 +195,35 @@ class Object(object):
     return result, offset
 
 
+class Slot(object):
+
+  @classmethod
+  def pack(cls, data, packet=None):
+    if data is None or data["id"]==-1:
+      result = Short.pack(-1, packet)
+    else:
+      result = Short.pack(data["id"])
+      result += Byte.pack(data["count"])
+      result += Short.pack(data["meta"])
+      if enchantable(data["id"]):
+        raise NotImplementedError
+    return result
+
+  @classmethod
+  def unpack(cls, buf, offset=0, info={}):
+    result = {}
+    result["id"], offset = Short.unpack(buf, offset, info)
+    if result["id"] != -1:
+      result["count"], offset = Byte.unpack(buf, offset, info)
+      result["damage"], offset = Short.unpack(buf, offset, info)
+      result["nbt_length"], offset = Short.unpack(buf, offset, info)
+      if result["nbt_length"] != -1:
+        result["data"], offset = Array(Byte, result["data_length"]).unpack(buf, offset, info)
+    return result, offset
+
+
 class MetaData(object):
-  __types = [Byte, Short, Int, Float, String]
+  __types = [Byte, Short, Int, Float, String, Slot]
 
   @classmethod
   def pack(cls, data, packet=None):
@@ -216,32 +243,6 @@ class MetaData(object):
       x, offset = UnsignedByte.unpack(buf, offset, info)
     return result, offset
 
-class Slot(object):
-
-  @classmethod
-  def pack(cls, data, packet=None):
-    if data is None or data["id"]==-1:
-      result = Short.pack(-1, packet)
-    else:
-      result = Short.pack(data["id"])
-      result += Byte.pack(data["count"])
-      result += Short.pack(data["meta"])
-      if enchantable(data["id"]):
-        raise NotImplementedError
-    return result
-
-  @classmethod
-  def unpack(cls, buf, offset=0, info={}):
-    result = {}
-    result["id"], offset = Short.unpack(buf, offset, info)
-    if result["id"]!=-1:
-      result["count"], offset = Byte.unpack(buf, offset, info)
-      result["meta"], offset = Short.unpack(buf, offset, info)
-      if enchantable(result["id"]):
-        result["data_length"], offset = Short.unpack(buf, offset, info)
-        if result["data_length"]!=-1:
-          result["data"], offset = Array(Byte, result["data_length"]).unpack(buf, offset, info)
-    return result, offset
 
 
 class MultiBlockRecord(LengthType):
