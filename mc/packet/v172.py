@@ -56,6 +56,10 @@ def pack(packet, direction, state):
   result = VarInt.pack(len(p)) + p
   return result
 
+def unpack_peek_size(raw, offset = 0):
+  plen, noffset = VarInt.unpack(raw, offset)
+  return plen + noffset
+
 def unpack(raw, direction, state, offset = 0):
   plen, noffset = VarInt.unpack(raw, offset)
   size = plen + noffset
