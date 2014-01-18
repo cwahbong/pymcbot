@@ -2,7 +2,10 @@ from mc.fields import *
 
 import collections
 import functools
+import logging
 import sys
+
+_logger = logging.getLogger(__name__)
 
 CLIENT_TO_SERVER = 0
 SERVER_TO_CLIENT = 1
@@ -45,14 +48,24 @@ def pack(packet, direction, state):
   return result
 
 def unpack(raw, direction, state, offset = 0):
-  plen, offset = VarInt.unpack(raw, offset)
-  pid, offset = VarInt.unpack(raw, offset)
+  plen, noffset = VarInt.unpack(raw, offset)
+  size = plen + noffset
+  raw[size-1]
+  pid, noffset = VarInt.unpack(raw, noffset)
+  if pid not in _fields[direction, state]:
+    _logger.warning("Packet id {} not supported and skipped.".format(pid))
+    return None, size
   finfo = dict()
   for ftype, fname in _fields[direction, state][pid]:
-    fcontent, offset = ftype.unpack(raw, offset, finfo)
+    fcontent, noffset = ftype.unpack(raw, noffset, finfo)
     if fname:
       finfo[fname] = fcontent
-  return Packet(direction, state, _name[direction, state][pid], **finfo), offset
+  return Packet(
+      direction,
+      state,
+      _name[direction, state][pid],
+      **finfo
+  ), size
 
 def register(direction, state, *type_infos):
   for type_info in type_infos:
