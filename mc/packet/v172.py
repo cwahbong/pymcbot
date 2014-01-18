@@ -156,6 +156,136 @@ register(SERVER_TO_CLIENT, LOGIN_STATE,
     ]),
 )
 
+register(CLIENT_TO_SERVER, PLAY_STATE,
+    (0x00, "keep_alive", [
+        (Int, "keep_live_id"),
+    ]),
+    (0x01, "chat_message", [
+        (String, "message"),
+    ]),
+    (0x02, "use_entity", [
+        (Int, "target"),
+        (Byte, "mouse"),
+    ]),
+    (0x03, "player", [
+        (Bool, "on_ground"),
+    ]),
+    (0x04, "player_position", [
+        (Double, "x"),
+        (Double, "feet_y"),
+        (Double, "head_y"),
+        (Double, "z"),
+        (Bool, "on_ground"),
+    ]),
+    (0x05, "player_look", [
+        (Float, "yaw"),
+        (Float, "pitch"),
+        (Bool, "on_ground"),
+    ]),
+    (0x06, "player_position_and_look", [
+        (Double, "x"),
+        (Double, "feet_y"),
+        (Double, "head_y"),
+        (Double, "z"),
+        (Float, "yaw"),
+        (Float, "pitch"),
+        (Bool, "on_ground"),
+    ]),
+    (0x07, "player_digging", [
+        (Byte, "status"),
+        (Int, "x"),
+        (UnsignedByte, "y"),
+        (Int, "z"),
+        (Byte, "face"),
+    ]),
+    (0x08, "player_block_placement", [
+        (Int, "x"),
+        (UnsignedByte, "y"),
+        (Int, "z"),
+        (Byte, "direction"),
+        (Slot, "held_item"),
+        (Byte, "cursor_position_x"),
+        (Byte, "cursor_position_y"),
+        (Byte, "cursor_position_z"),
+    ]),
+    (0x09, "held_item_change", [
+        (Short, "slot"),
+    ]),
+    (0x0A, "animation", [
+        (Int, "entity_id"),
+        (Byte, "animation"),
+    ]),
+    (0x0B, "entity_action", [
+        (Int, "entity_id"),
+        (Byte, "action_id"),
+        (Int, "jump_boost"),
+    ]),
+    (0x0C, "steer_vehicle", [
+        (Float, "sideways"),
+        (Float, "forward"),
+        (Bool, "jump"),
+        (Bool, "unmount"),
+    ]),
+    (0x0D, "close_window", [
+        (Byte, "window_id"),
+    ]),
+    (0x0E, "click_window", [
+        (Byte, "window_id"),
+        (Short, "slot"),
+        (Byte, "button"),
+        (Short, "action_number"),
+        (Byte, "mode"),
+        (Slot, "clicked_item"),
+    ]),
+    (0x0F, "confirm_transaction", [
+        (Byte, "window_id"),
+        (Short, "action_number"),
+        (Bool, "accepted"),
+    ]),
+    (0x10, "creative_inventory_action", [
+        (Short, "slot"),
+        (Slot, "clicked_item"),
+    ]),
+    (0x11, "enchant_item", [
+        (Byte, "window_id"),
+        (Byte, "enchantment"),
+    ]),
+    (0x12, "update_sign", [
+        (Int, "x"),
+        (Short, "y"),
+        (Int, "z"),
+        (String, "line_1"),
+        (String, "line_2"),
+        (String, "line_3"),
+        (String, "line_4"),
+    ]),
+    (0x13, "player_abilities", [
+        (Byte, "flags"),
+        (Float, "flying_speed"),
+        (Float, "walking_speed"),
+    ]),
+    (0x14, "tab_complete", [
+        (String, "text"),
+    ]),
+    (0x15, "client_settings", [
+        (String, "locale"),
+        (Byte, "view_distance"),
+        (Byte, "chat_flags"),
+        (Bool, "chat_colors"),
+        (Byte, "difficulty"),
+        (Bool, "show_cape"),
+    ]),
+    (0x16, "client_status", [
+        (Byte, "action_id"),
+    ]),
+    (0x17, "plugin_message", [
+        (String, "channel"),
+        (Short, "data_length"),
+        (Array(Byte, "data_length"),
+            "data"),
+    ]),
+)
+
 register(SERVER_TO_CLIENT, PLAY_STATE,
     (0x00, "keep_alive", [
         (Int, "keep_live_id"),
