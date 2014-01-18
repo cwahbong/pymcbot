@@ -43,12 +43,15 @@ class VarInt(object):
   @classmethod
   def unpack(cls, buf, offset = 0, info = None):
     nums = []
-    while True:
-      b = buf[offset]
-      offset += 1
-      nums.append(b & 0x7F)
-      if b & 0x80 == 0:
-        break
+    try:
+      while True:
+        b = buf[offset]
+        offset += 1
+        nums.append(b & 0x7F)
+        if b & 0x80 == 0:
+          break
+    except IndexError as e:
+      raise struct.error("Raw data length not enough for VarInt.")
     result = 0
     for n in reversed(nums):
       result = 128 * result + n

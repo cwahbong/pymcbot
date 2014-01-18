@@ -26,6 +26,15 @@ _kwset = collections.defaultdict(dict)
 _name = collections.defaultdict(dict)
 _pid = collections.defaultdict(dict)
 
+
+class RawPacket:
+
+  def __init__(self, pid, raw):
+    self._pid = pid
+    self._name = "unknown"
+    self.raw = raw
+
+
 class Packet:
 
   def __init__(self, packet_direction, packet_state, packet_name, **field_info):
@@ -50,11 +59,12 @@ def pack(packet, direction, state):
 def unpack(raw, direction, state, offset = 0):
   plen, noffset = VarInt.unpack(raw, offset)
   size = plen + noffset
-  raw[size-1]
+  if len(raw) < size:
+    raise struct.error("Raw data length not enought for packet.")
   pid, noffset = VarInt.unpack(raw, noffset)
   if pid not in _fields[direction, state]:
     _logger.warning("Packet id {} not supported and skipped.".format(pid))
-    return None, size
+    return RawPacket(pid, raw[noffset:size]), size
   finfo = dict()
   for ftype, fname in _fields[direction, state][pid]:
     fcontent, noffset = ftype.unpack(raw, noffset, finfo)

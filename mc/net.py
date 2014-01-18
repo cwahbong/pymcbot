@@ -4,6 +4,7 @@ import logging
 import os
 import queue
 import socket
+import struct
 
 from mc.packet import v172 as packets
 from mc import util
@@ -79,9 +80,10 @@ class _McRecver(util.Repeater):
         self._recv -= 1
         self._need_more = False
         _logger.debug("Receive packet, type: %s", packet._name)
-      except Exception as e:
+      except struct.error as e:
         self._need_more = True
         _logger.warning(e)
+
 
 class Connector:
 
