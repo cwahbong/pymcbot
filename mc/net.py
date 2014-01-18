@@ -68,21 +68,37 @@ class _McRecver(util.Repeater):
       return
     if self._need_more or len(self._buf) == 0:
       try:
-        self._buf += self._socket.recv(self.fetch)
+        r = self._socket.recv(self.fetch)
+        if len(r) == 0:
+          _logger.warning("Disconnected by the server.")
+          self.stop_later()
+        self._buf += r
       except socket.error as e:
         if e.args[0] != errno.EAGAIN:
           raise e
     if len(self._buf) > 0:
       try:
-        packet, size = packets.unpack(self._buf, packets.SERVER_TO_CLIENT, self._state)
-        self._buf = self._buf[size:]
-        self._packet_queue.put(packet)
-        self._recv -= 1
-        self._need_more = False
-        _logger.debug("Receive packet, type: %s", packet._name)
+        self._need_atleast = packets.unpack_peek_size(self._buf)
       except struct.error as e:
         self._need_more = True
         _logger.warning(e)
+        return
+    if len(self._buf) < self._need_atleast:
+      _logger.debug("Need more data to form a packet.")
+      self._need_more = True
+      return
+    try:
+      packet, size = packets.unpack(self._buf, packets.SERVER_TO_CLIENT, self._state)
+      self._buf = self._buf[size:]
+      self._packet_queue.put(packet)
+      self._recv -= 1
+      self._need_more = False
+      _logger.debug("Receive packet, type: %s", packet._name)
+    except Exception as e:
+      import binascii
+      _logger.error(e)
+      _logger.error(binascii.hexlify(self._buf))
+      raise e
 
 
 class Connector:
