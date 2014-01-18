@@ -10,7 +10,7 @@ def enchantable(item_id):
   return False
 
 
-class LengthType(object):
+class LengthType:
 
   def __init__(self, length_info):
     self.length_info = length_info
@@ -25,7 +25,7 @@ class LengthType(object):
     raise ValueError
 
 
-class VarInt(object):
+class VarInt:
 
   def __init__(self):
     raise NotImplementedError
@@ -58,7 +58,7 @@ class VarInt(object):
     return result, offset
 
 
-class Primitive(object):
+class Primitive:
   """ Base of a type that can be pack/unpack by ``struct'' module.
       You should not create any instance of this class and its
       subclasses.
@@ -133,7 +133,7 @@ class Double(Primitive):
   format = "!d"
 
 
-class String(object):
+class String:
   """ UTF8 string prefixed with its byte length (VarInt)
   """
 
@@ -177,7 +177,7 @@ class Array(LengthType):
     return result, offset
 
 
-class Object(object):
+class Object:
 
   @classmethod
   def pack(cls, data, packet=None):
@@ -195,7 +195,7 @@ class Object(object):
     return result, offset
 
 
-class Slot(object):
+class Slot:
 
   @classmethod
   def pack(cls, data, packet=None):
@@ -222,7 +222,7 @@ class Slot(object):
     return result, offset
 
 
-class MetaData(object):
+class MetaData:
   __types = [Byte, Short, Int, Float, String, Slot]
 
   @classmethod
