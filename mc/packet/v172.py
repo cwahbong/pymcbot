@@ -519,14 +519,19 @@ register(SERVER_TO_CLIENT, PLAY_STATE,
         (Int, "y"),
         (Int, "z"),
     ]),
-    # TODO
-    # (0x37, "statistics", [
-    #     (VarInt, "count"),
-    #     (Array(Entry, "count"),
-    #         "entry"),
-        # DEP (String, "entry_statistic_name"),
-        # DEP (VarInt, "entry_value"),
-    # ]),
+    (0x37, "statistics", [
+        (VarInt, "count"),
+        (
+            Array(
+                Multi(
+                    (String, "statistic_name"),
+                    (VarInt, "entry_value"),
+                ),
+                "count",
+            ),
+           "entries"
+        ),
+    ]),
     (0x38, "player_list_item", [
         (String, "player_name"),
         (Bool, "online"),
