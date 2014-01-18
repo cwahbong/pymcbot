@@ -244,6 +244,27 @@ class MetaData(object):
     return result, offset
 
 
+class Multi:
+
+  class Unpacked:
+    pass
+
+  def __init__(self, *fields):
+    self._fields = fields
+
+  def pack(self, data, packet=None):
+    result = bytearray()
+    for tp, name in self._fields:
+      result += tp.pack(getattr(data, name))
+    return result
+
+  def unpack(self, buf, offset=0, info={}):
+    result = Multi.Unpacked()
+    for tp, name in self._fields:
+      value, offset = tp.unpack(buf, offset, info)
+      setattr(result, name, value)
+    return result, offset
+
 
 class MultiBlockRecord(LengthType):
 

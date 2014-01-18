@@ -390,14 +390,25 @@ register(SERVER_TO_CLIENT, PLAY_STATE,
         (Int, "z"),
         (Byte, "destroy_stage"),
     ]),
-    # (0x26, "map_chunk_bulk", [
-    #     (Short, "chunk_column_count"),
-    #     (Int, "data_length"),
-    #     (Bool, "sky_light_sent"),
-    #     (Array(Byte, "data_length"),
-    #         "data"),
-    #     TODO (Meta, "meta_information"),
-    # ]),
+    (0x26, "map_chunk_bulk", [
+        (Short, "chunk_column_count"),
+        (Int, "data_length"),
+        (Bool, "sky_light_sent"),
+        (Array(Byte, "data_length"),
+            "data"),
+        (
+            Array(
+                Multi(
+                    (Int, "chunk_x"),
+                    (Int, "chunk_z"),
+                    (UnsignedShort, "primary_bitmap"),
+                    (UnsignedShort, "add_bitmap"),
+                ),
+                "chunk_column_count"
+            ),
+            "meta",
+        ),
+    ]),
     # (0x27, "explosion", [
     #     (Float, "x"),
     #     (Float, "y"),
