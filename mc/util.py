@@ -10,18 +10,28 @@ class Repeater(threading.Thread):
 
   def __init__(self, name = None):
     super().__init__(name = name)
-    self._msg_queue = queue.Queue()
 
   def run(self):
-    while True:
-      if not self._msg_queue.empty():
-        cmd, content = self._msg_queue.get()
-        if cmd == STOP:
-          break
-        self.runcmd(cmd, content)
-      else:
-        self.noncmd()
+    while self._repeated():
+      pass
     _logger.info("Thread stopped.".format(self.name))
+
+
+class Messenger(Repeater):
+
+  def __init__(self, name = None):
+    super().__init__(name = name)
+    self._msg_queue = queue.Queue()
+
+  def message(self, cmd, content):
+    self._msg_queue.put((cmd, content))
+
+  def _repeated(self):
+    cmd, content = self._msg_queue.get()
+    if cmd == STOP:
+      return False
+    else:
+      return self._runcmd(cmd, content)
 
   def stop_later(self):
     self._msg_queue.put((STOP, None))

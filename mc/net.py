@@ -17,14 +17,14 @@ SET_STATE = "set_state"
 RECV = "recv"
 AUTO_RECV = "auto_recv"
 
-class _McSender(util.Repeater):
+class _McSender(util.Messenger):
 
   def __init__(self, socket):
     super().__init__("Sender")
     self._socket = socket
     self._state = packets.START_STATE
 
-  def runcmd(self, cmd, content):
+  def _runcmd(self, cmd, content):
     if cmd == SET_STATE:
       self._state = content
     elif cmd == PACKET:
@@ -32,40 +32,25 @@ class _McSender(util.Repeater):
       r = self._socket.send(raw)
       if r != len(raw):
         _logger.warning("Num of bytes sent != length or data.")
+    else:
+      raise ValueError("cmd error in sender")
+    return True
 
-  def noncmd(self):
-    pass
 
-
-class _McRecver(util.Repeater):
+class _McRecver(util.Messenger):
   fetch = 4096
 
   def __init__(self, socket):
     super().__init__("Recver")
+    self._need_atleast = 1
     self._need_more = False
-    self._auto = False
+    self._drop_auto = False
     self._buf = bytearray()
-    self._recv = 0
     self._socket = socket
     self._state = packets.START_STATE
     self._packet_queue = queue.Queue()
 
-  def runcmd(self, cmd, content):
-    if cmd == SET_STATE:
-      self._state = content
-      _logger.debug("Recver new state: {}.".format(self._state))
-    elif cmd == AUTO_RECV:
-      self._auto = content
-      _logger.debug("Recver auto: {}.".format(self._auto))
-    elif cmd == RECV:
-      self._recv += content
-      _logger.debug("Recv {} more packet later.".format(content))
-    else:
-      raise ValueError("cmd error in recver")
-
-  def noncmd(self):
-    if not self._auto and self._recv == 0:
-      return
+  def _recv(self):
     if self._need_more or len(self._buf) == 0:
       try:
         r = self._socket.recv(self.fetch)
@@ -73,25 +58,23 @@ class _McRecver(util.Repeater):
           _logger.warning("Disconnected by the server.")
           self.stop_later()
         self._buf += r
-      except socket.error as e:
-        if e.args[0] != errno.EAGAIN:
-          raise e
+      except socket.timeout:
+        _logger.warning("Socket timeout.")
     if len(self._buf) > 0:
       try:
         self._need_atleast = packets.unpack_peek_size(self._buf)
       except struct.error as e:
         self._need_more = True
         _logger.warning(e)
-        return
+        return False
     if len(self._buf) < self._need_atleast:
       _logger.debug("Need more data to form a packet.")
       self._need_more = True
-      return
+      return False
     try:
       packet, size = packets.unpack(self._buf, packets.SERVER_TO_CLIENT, self._state)
       self._buf = self._buf[size:]
       self._packet_queue.put(packet)
-      self._recv -= 1
       self._need_more = False
       _logger.debug("Receive packet, type: %s", packet._name)
     except Exception as e:
@@ -99,6 +82,30 @@ class _McRecver(util.Repeater):
       _logger.error(e)
       _logger.error(binascii.hexlify(self._buf))
       raise e
+    return True
+
+  def _runcmd(self, cmd, content):
+    if cmd == SET_STATE:
+      self._state = content
+      _logger.debug("Recver new state: {}.".format(self._state))
+    elif cmd == AUTO_RECV:
+      self._drop_auto = not content
+      if content:
+        if self._drop_auto:
+          _logger.info("Stop auto recv")
+          return
+        self._recv()
+        self.message(cmd, content)
+    elif cmd == RECV:
+      if content > 0:
+        success = self._recv()
+        if not success:
+          self.message(cmd, content)
+        elif content > 1:
+          self.message(cmd, content - 1)
+    else:
+      raise ValueError("cmd error in recver")
+    return True
 
 
 class Connector:
@@ -136,17 +143,17 @@ class Connector:
     self._socket.close()
 
   def set_state(self, state):
-    self._sender._msg_queue.put((SET_STATE, state))
-    self._recver._msg_queue.put((SET_STATE, state))
+    self._sender.message(SET_STATE, state)
+    self._recver.message(SET_STATE, state)
 
   def send_later(self, packet):
-    self._sender._msg_queue.put((PACKET, packet))
+    self._sender.message(PACKET, packet)
 
   def set_auto_recv(self, auto):
-    self._recver._msg_queue.put((AUTO_RECV, auto))
+    self._recver.message(AUTO_RECV, auto)
 
   def recv_later(self, n = 1):
-    self._recver._msg_queue.put((RECV, n))
+    self._recver.message(RECV, n)
 
   def pop_packet(self):
     return self._recver._packet_queue.get()
