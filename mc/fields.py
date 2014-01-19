@@ -235,7 +235,7 @@ class Slot:
       result["damage"], offset = Short.unpack(buf, offset, info)
       result["nbt_length"], offset = Short.unpack(buf, offset, info)
       if result["nbt_length"] != -1:
-        result["data"], offset = Array(Byte, result["data_length"]).unpack(buf, offset, info)
+        result["nbt"], offset = Array(Byte, result["nbt_length"]).unpack(buf, offset, info)
     return result, offset
 
 
