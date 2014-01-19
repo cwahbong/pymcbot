@@ -77,7 +77,7 @@ def unpack(raw, direction, state, offset = 0):
   if noffset != size:
     import binascii
     _logger.warning("noffset != size, possibly parse incorrectly. {},"
-       "{}".format(noffset, size))
+       "{}, offset = {}, plen = {}.".format(noffset, size, offset, plen))
     _logger.warning(binascii.hexlify(raw[offset:size]))
   _logger.debug(finfo)
   return Packet(
@@ -162,7 +162,7 @@ register(SERVER_TO_CLIENT, LOGIN_STATE,
 
 register(CLIENT_TO_SERVER, PLAY_STATE,
     (0x00, "keep_alive", [
-        (Int, "keep_live_id"),
+        (Int, "keep_alive_id"),
     ]),
     (0x01, "chat_message", [
         (String, "message"),
@@ -292,7 +292,7 @@ register(CLIENT_TO_SERVER, PLAY_STATE,
 
 register(SERVER_TO_CLIENT, PLAY_STATE,
     (0x00, "keep_alive", [
-        (Int, "keep_live_id"),
+        (Int, "keep_alive_id"),
     ]),
     (0x01, "join_game", [
         (Int, "entity_id"),
