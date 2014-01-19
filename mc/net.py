@@ -1,3 +1,4 @@
+import collections
 import errno
 import json
 import logging
@@ -156,7 +157,19 @@ class Connector:
     self._recver.message(RECV, n)
 
   def pop_packet(self):
-    return self._recver._packet_queue.get()
+    def _pop_now():
+      if not self._recver._packet_queue.empty():
+        return self._recver._packet_queue.get()
+      return None
+    if not self._recver.is_alive():
+      return _pop_now()
+    while True:
+      try:
+        return self._recver._packet_queue.get(timeout=0.5)
+      except queue.Empty:
+        if not self._recver.is_alive():
+          break
+    return _pop_now()
 
 
 def ping(host, port):
@@ -211,3 +224,58 @@ def login(host, port, username):
     raise ValueError("Unexpected packet type.")
   connector.set_state(packets.PLAY_STATE)
   return connector, encrypted
+
+
+class Handler:
+  def __init__(self, client, connector):
+    self._client = client
+    self._connector = connector
+
+
+class KeepAliveHandler(Handler):
+  def __init__(self, client, connector):
+    super().__init__(client, connector)
+
+  def keep_alive(self, packet):
+    ka = packets.cs_keep_alive(keep_alive_id = packet.keep_alive_id)
+    self._connector.send_later(ka)
+    _logger.debug("Response a keep_alive packet with id {}.".format(
+        ka.keep_alive_id
+    ))
+
+
+class _McDispatcher(util.Repeater):
+
+  def __init__(self, client, connector, handler_factories):
+    super().__init__("Handler")
+    self._connector = connector
+    self._handlers = collections.defaultdict(list)
+    pids = packets._pid[packets.SERVER_TO_CLIENT, packets.PLAY_STATE]
+    for factory in handler_factories:
+      handler = factory(client, connector)
+      for name in pids.keys():
+        if hasattr(handler, name):
+           self._handlers[pids[name]].append(handler)
+
+  def _repeated(self):
+    packet = self._connector.pop_packet()
+    for handler in self._handlers[packet._pid]:
+      getattr(handler, packet._name)(packet)
+    return True
+
+
+class Client:
+
+  def __init__(self):
+    pass
+
+  def login(self, host, port, username):
+    connector, encrypted = login(host, port, username)
+    connector.set_auto_recv(True)
+    self._dispatcher = _McDispatcher(self, connector, [
+        KeepAliveHandler
+    ])
+    self._dispatcher.start()
+
+  def logout(self):
+    self._dispatcher._connector.disconnect()
