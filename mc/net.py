@@ -126,8 +126,8 @@ class Connector:
     try:
       self._socket.connect(address)
       self._socket.settimeout(1.0)
-      self._sender.start()
-      self._recver.start()
+      self._sender.thread.start()
+      self._recver.thread.start()
     except socket.error as e:
       _logger.error("Socket: {}.".format(os.strerror(e.args[0])))
       return False
@@ -135,10 +135,10 @@ class Connector:
 
   def disconnect(self):
     self._sender.stop_later()
-    self._sender.join()
+    self._sender.thread.join()
 
     self._recver.stop_later()
-    self._recver.join()
+    self._recver.thread.join()
 
     self._socket.shutdown(socket.SHUT_RDWR)
     self._socket.close()
@@ -161,13 +161,13 @@ class Connector:
       if not self._recver._packet_queue.empty():
         return self._recver._packet_queue.get()
       return None
-    if not self._recver.is_alive():
+    if not self._recver.thread.is_alive():
       return _pop_now()
     while True:
       try:
         return self._recver._packet_queue.get(timeout=0.5)
       except queue.Empty:
-        if not self._recver.is_alive():
+        if not self._recver.thread.is_alive():
           break
     return _pop_now()
 
@@ -275,7 +275,9 @@ class Client:
     self._dispatcher = _McDispatcher(self, connector, [
         KeepAliveHandler
     ])
-    self._dispatcher.start()
+    self._dispatcher.thread.start()
 
   def logout(self):
     self._dispatcher._connector.disconnect()
+    self._dispatcher.stop_later()
+    self._dispatcher.thread.join()

@@ -6,32 +6,41 @@ _logger = logging.getLogger(__name__)
 
 STOP = "stop"
 
-class Repeater(threading.Thread):
+class Repeater:
 
-  def __init__(self, name = None):
-    super().__init__(name = name)
+  def __init__(self, name):
+    self.name = name
+    self.thread = threading.Thread(
+        target = self,
+        name = self.name
+    )
 
-  def run(self):
+  def _repeated(self):
+    raise NotImplementedError()
+
+  def __call__(self):
     while self._repeated():
       pass
-    _logger.info("Thread stopped.".format(self.name))
+    _logger.info("Repeater \"{}\" stopped.".format(self._name))
 
 
 class Messenger(Repeater):
 
-  def __init__(self, name = None):
+  def __init__(self, name = None, block = True, timeout = None):
     super().__init__(name = name)
     self._msg_queue = queue.Queue()
+    self._block = block
+    self._timeout = timeout
 
   def message(self, cmd, content):
     self._msg_queue.put((cmd, content))
 
   def _repeated(self):
-    cmd, content = self._msg_queue.get()
-    if cmd == STOP:
-      return False
-    else:
-      return self._runcmd(cmd, content)
+    try:
+      cmd, content = self._msg_queue.get(self._block, self._timeout)
+      return False if cmd == STOP else self._runcmd(cmd, content)
+    except queue.Empty:
+      return self._empty()
 
   def stop_later(self):
     self._msg_queue.put((STOP, None))
