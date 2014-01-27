@@ -21,7 +21,7 @@ class Repeater:
   def __call__(self):
     while self._repeated():
       pass
-    _logger.info("Repeater \"{}\" stopped.".format(self._name))
+    _logger.info("Repeater \"{}\" stopped.".format(self.name))
 
 
 class Messenger(Repeater):
