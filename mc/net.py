@@ -6,6 +6,7 @@ import os
 import queue
 import socket
 import struct
+import time
 
 from mc.packet import v172 as packets
 from mc import util
@@ -17,6 +18,11 @@ SET_STATE = "set_state"
 
 RECV = "recv"
 AUTO_RECV = "auto_recv"
+
+POSITION = "position"
+LOOK = "look"
+POSITION_LOOK = "position_look"
+POSITION_LOOK_SERVER = "position_look_server"
 
 class _McSender(util.Messenger):
 
@@ -232,7 +238,7 @@ class Handler:
     self._connector = connector
 
 
-class KeepAliveHandler(Handler):
+class ConnectionHandler(Handler):
   def __init__(self, client, connector):
     super().__init__(client, connector)
 
@@ -242,6 +248,47 @@ class KeepAliveHandler(Handler):
     _logger.debug("Response a keep_alive packet with id {}.".format(
         ka.keep_alive_id
     ))
+
+  def disconnect(self, packet):
+    _logger.info("Disconnected by server, reason: {}.".format(
+        packet.reason
+    ))
+
+
+class PlayerStatusHandler(Handler):
+  def __init__(self, client, connector):
+    super().__init__(client, connector)
+
+  def join_game(self, packet):
+    self._client.player_entity_id = packet.entity_id
+
+  def update_health(self, packet):
+    self._client.health = packet.health
+    self._client.food = packet.food
+    self._client.food_saturation = packet.food_saturation
+
+  def player_position_and_look(self, packet):
+    self._client._positioner.message(POSITION_LOOK_SERVER, packet)
+
+  def held_item_change(self, packet):
+    self._client.held_item_slot = packet.slot
+
+  def use_bed(self, packet):
+    if packet.entity_id == self._client.player_entity_id:
+      self._client.on_bed = True
+
+  def set_experience(self, packet):
+    self._client.experience_bar = packet.experience_bar
+    self._client.level = packet.level
+    self._client.total_experience = packet.total_experience
+
+  def player_abilities(self, packet):
+    self._client.god_mode = packet.flags & 0x8
+    self._client.can_fly = packet.flags & 0x4
+    self._client.flying = packet.flags & 0x2
+    self._client.creative_mode = packet.flags & 0x1
+    self._client.flying_speed = packet.flying_speed
+    self._client.walking_speed = packet.walking_speed
 
 
 class _McDispatcher(util.Repeater):
@@ -264,6 +311,70 @@ class _McDispatcher(util.Repeater):
     return True
 
 
+class _McPositioner(util.Messenger):
+
+  def __init__(self, client, connector):
+    super().__init__(name = "Positioner", block = False)
+    self._client = client
+    self._connector = connector
+    self.on_ground = None
+    self.yaw = None
+    self.pitch = None
+    self.x = None
+    self.y = None
+    self.z = None
+    self._need_correction = False
+
+  def _runcmd(self, cmd, content):
+    if cmd == POSITION:
+      # TODO send cs_player_position()
+      pass
+    elif cmd == LOOK:
+      # TODO send cs_player_look()
+      pass
+    elif cmd == POSITION_LOOK:
+      # TODO send cs_player_position_look()
+      pass
+    elif cmd == POSITION_LOOK_SERVER:
+      self._need_correction = True
+      self.x = content.x
+      self.y = content.y
+      self.z = content.z
+      self.yaw = content.yaw
+      self.pitch = content.pitch
+      self.on_ground = content.on_ground
+      ppl = packets.cs_player_position_and_look(
+        x = self.x,
+        feet_y = self.y - 1.62,
+        head_y = self.y,
+        z = self.z,
+        yaw = self.yaw,
+        pitch = self.pitch,
+        on_ground = self.on_ground,
+      )
+      self._connector.send_later(ppl)
+    time.sleep(0.05)
+    return True
+
+  def _empty(self):
+    if self.on_ground is None:
+      _logger.info("Position not ready.")
+    else:
+      _logger.info("No position update.")
+      self.on_ground = True
+      self._connector.send_later(packets.cs_player(
+          on_ground = self.on_ground
+      ))
+    time.sleep(0.05)
+    return True
+
+  def need_correction(self):
+    return self._need_correction
+
+  def known_correction(self):
+    self.need_correction = False
+
+
 class Client:
 
   def __init__(self):
@@ -272,12 +383,23 @@ class Client:
   def login(self, host, port, username):
     connector, encrypted = login(host, port, username)
     connector.set_auto_recv(True)
+    self._connector = connector
+
     self._dispatcher = _McDispatcher(self, connector, [
-        KeepAliveHandler
+        ConnectionHandler,
+        PlayerStatusHandler,
     ])
+    self._positioner = _McPositioner(self, connector)
+
+    # thread must started after all field initialized
     self._dispatcher.thread.start()
+    self._positioner.thread.start()
 
   def logout(self):
-    self._dispatcher._connector.disconnect()
+    self._positioner.stop_later()
+    self._positioner.thread.join()
+
     self._dispatcher.stop_later()
     self._dispatcher.thread.join()
+
+    self._connector.disconnect()
