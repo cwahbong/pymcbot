@@ -321,7 +321,7 @@ class _McPositioner(util.Messenger):
 class Actions:
   def __init__(self, client):
     self._client = client
-    self._connector = client.connector
+    self._connector = client._connector
 
   def next_position_look(self,
       x = None, y = None, z = None,
@@ -396,7 +396,7 @@ class Client:
     self._dispatcher.thread.start()
     self._positioner.thread.start()
 
-    self.actions = Actions(self._connector)
+    self.actions = Actions(self)
 
   def logout(self):
     del self.actions
