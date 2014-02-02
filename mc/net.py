@@ -9,6 +9,7 @@ import struct
 import time
 
 from mc.packet import v172 as packets
+from mc.handler import v172 as handlers
 from mc import util
 
 _logger = logging.getLogger(__name__)
@@ -232,64 +233,6 @@ def login(host, port, username):
   return connector, encrypted
 
 
-class Handler:
-  def __init__(self, client, connector):
-    self._client = client
-    self._connector = connector
-
-
-class ConnectionHandler(Handler):
-  def __init__(self, client, connector):
-    super().__init__(client, connector)
-
-  def keep_alive(self, packet):
-    ka = packets.cs_keep_alive(keep_alive_id = packet.keep_alive_id)
-    self._connector.send_later(ka)
-    _logger.debug("Response a keep_alive packet with id {}.".format(
-        ka.keep_alive_id
-    ))
-
-  def disconnect(self, packet):
-    _logger.info("Disconnected by server, reason: {}.".format(
-        packet.reason
-    ))
-
-
-class PlayerStatusHandler(Handler):
-  def __init__(self, client, connector):
-    super().__init__(client, connector)
-
-  def join_game(self, packet):
-    self._client.player_entity_id = packet.entity_id
-
-  def update_health(self, packet):
-    self._client.health = packet.health
-    self._client.food = packet.food
-    self._client.food_saturation = packet.food_saturation
-
-  def player_position_and_look(self, packet):
-    self._client._positioner.message(POSITION_LOOK_SERVER, packet)
-
-  def held_item_change(self, packet):
-    self._client.held_item_slot = packet.slot
-
-  def use_bed(self, packet):
-    if packet.entity_id == self._client.player_entity_id:
-      self._client.on_bed = True
-
-  def set_experience(self, packet):
-    self._client.experience_bar = packet.experience_bar
-    self._client.level = packet.level
-    self._client.total_experience = packet.total_experience
-
-  def player_abilities(self, packet):
-    self._client.god_mode = packet.flags & 0x8
-    self._client.can_fly = packet.flags & 0x4
-    self._client.flying = packet.flags & 0x2
-    self._client.creative_mode = packet.flags & 0x1
-    self._client.flying_speed = packet.flying_speed
-    self._client.walking_speed = packet.walking_speed
-
 
 class _McDispatcher(util.Repeater):
 
@@ -375,6 +318,60 @@ class _McPositioner(util.Messenger):
     self.need_correction = False
 
 
+class Actions:
+  def __init__(self, client):
+    self._client = client
+    self._connector = client.connector
+
+  def next_position_look(self,
+      x = None, y = None, z = None,
+      yaw = None, pitch = None):
+    position = (x is not None) or (y is not None) or (z is not None)
+    look = (yaw is not None) or (pitch is not None)
+    # TODO tell positioner to handle this
+
+  def click_entity(self, entity_id, right_click = False):
+    self._connector.send_later(packets.cs_use_entity(
+        target = entity_id,
+        mouse = int(right_click)
+    ))
+
+  def click_block(self, x, y, z, direction, right_click = False):
+    if right_click:
+      self._connector.send_later(packets.cs_player_block_placement(
+        x = x,
+        y = y,
+        z = z,
+        direction = direction,
+        # held_item = ,
+        # cursor_position_x,
+        # cursor_position_y,
+        # cursor_position_z,
+    ))
+    else:
+      pass
+
+  def mousedown_block(self, x, y, z, direction, right_click = False):
+    pass
+
+  def mouseup_block(self, x, y, z, direction, right_click = False):
+    pass
+
+  def click_window(self, slot, right_click = False):
+    # TODO need implement action number
+    pass
+
+  def close_window(self):
+    self._connector.send_later(packets.cs_close_window(
+      window_id = self._client.window_stack[-1]
+    ))
+    if len(self._client.window_stack) > 1:
+      self._client.window_stack.pop()
+
+  def drop(self):
+    pass
+
+
 class Client:
 
   def __init__(self):
@@ -386,8 +383,12 @@ class Client:
     self._connector = connector
 
     self._dispatcher = _McDispatcher(self, connector, [
-        ConnectionHandler,
-        PlayerStatusHandler,
+        handlers.Connection,
+        handlers.WorldStatus,
+        handlers.PlayerStatus,
+        handlers.Block,
+        handlers.Window,
+        handlers.Entity,
     ])
     self._positioner = _McPositioner(self, connector)
 
@@ -395,7 +396,10 @@ class Client:
     self._dispatcher.thread.start()
     self._positioner.thread.start()
 
+    self.actions = Actions(self._connector)
+
   def logout(self):
+    del self.actions
     self._positioner.stop_later()
     self._positioner.thread.join()
 
