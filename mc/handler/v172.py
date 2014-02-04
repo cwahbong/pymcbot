@@ -1,7 +1,6 @@
 import logging
 
 from mc.handler.base import Handler
-from mc.packet import v172 as packets
 from mc.window import v172 as windows
 
 import mc.net
@@ -13,10 +12,11 @@ class Connection(Handler):
     super().__init__(client, connector)
 
   def keep_alive(self, packet):
-    ka = packets.cs_keep_alive(keep_alive_id = packet.keep_alive_id)
-    self._connector.send_later(ka)
+    self._connector.send_later("keep_alive",
+        keep_alive_id = packet.keep_alive_id,
+    )
     _logger.debug("Response a keep_alive packet with id {}.".format(
-        ka.keep_alive_id
+        packet.keep_alive_id
     ))
 
   def disconnect(self, packet):

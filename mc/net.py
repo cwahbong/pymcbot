@@ -30,13 +30,14 @@ class _McSender(util.Messenger):
   def __init__(self, socket):
     super().__init__("Sender")
     self._socket = socket
-    self._state = packets.START_STATE
+    self._packets = packets.cs.start
 
   def _runcmd(self, cmd, content):
     if cmd == SET_STATE:
-      self._state = content
+      self._packets = packets.cs.state[content]
     elif cmd == PACKET:
-      raw = packets.pack(content, packets.CLIENT_TO_SERVER, self._state)
+      p = self._packets.make(content[0], **content[1])
+      raw = self._packets.pack(p)
       r = self._socket.send(raw)
       if r != len(raw):
         _logger.warning("Num of bytes sent != length or data.")
@@ -55,7 +56,7 @@ class _McRecver(util.Messenger):
     self._drop_auto = False
     self._buf = bytearray()
     self._socket = socket
-    self._state = packets.START_STATE
+    self._packets = packets.sc.start
     self._packet_queue = queue.Queue()
 
   def _recv(self):
@@ -80,7 +81,7 @@ class _McRecver(util.Messenger):
       self._need_more = True
       return False
     try:
-      packet, size = packets.unpack(self._buf, packets.SERVER_TO_CLIENT, self._state)
+      packet, size = self._packets.unpack(self._buf)
       self._buf = self._buf[size:]
       self._packet_queue.put(packet)
       self._need_more = False
@@ -94,8 +95,8 @@ class _McRecver(util.Messenger):
 
   def _runcmd(self, cmd, content):
     if cmd == SET_STATE:
-      self._state = content
-      _logger.debug("Recver new state: {}.".format(self._state))
+      self._packets = packets.sc.state[content]
+      _logger.debug("Recver new state: {}.".format(content))
     elif cmd == AUTO_RECV:
       self._drop_auto = not content
       if content:
@@ -154,8 +155,8 @@ class Connector:
     self._sender.message(SET_STATE, state)
     self._recver.message(SET_STATE, state)
 
-  def send_later(self, packet):
-    self._sender.message(PACKET, packet)
+  def send_later(self, _name, **info):
+    self._sender.message(PACKET, (_name, info))
 
   def set_auto_recv(self, auto):
     self._recver.message(AUTO_RECV, auto)
@@ -186,15 +187,15 @@ def ping(host, port):
   if not connected:
     return None
 
-  connector.send_later(packets.cs_handshake(
+  connector.send_later("handshake",
       version = 4,
       address = host,
       port = port,
       state = packets.STATUS_STATE
-  ))
+  )
 
   connector.set_state(packets.STATUS_STATE)
-  connector.send_later(packets.cs_status_request())
+  connector.send_later("status_request")
   connector.recv_later(1)
   response = connector.pop_packet()
 
@@ -208,16 +209,16 @@ def login(host, port, username):
   if not connected:
     return None, None
 
-  connector.send_later(packets.cs_handshake(
+  connector.send_later("handshake",
       version = 4,
       address = host,
       port = port,
-      state = packets.LOGIN_STATE
-  ))
+      state = packets.LOGIN_STATE,
+  )
   connector.set_state(packets.LOGIN_STATE)
-  connector.send_later(packets.cs_login_start(
-      name = username
-  ))
+  connector.send_later("login_start",
+      name = username,
+  )
   connector.recv_later(1)
   packet = connector.pop_packet()
   encrypted = False
@@ -233,14 +234,13 @@ def login(host, port, username):
   return connector, encrypted
 
 
-
 class _McDispatcher(util.Repeater):
 
   def __init__(self, client, connector, handler_factories):
     super().__init__("Handler")
     self._connector = connector
     self._handlers = collections.defaultdict(list)
-    pids = packets._pid[packets.SERVER_TO_CLIENT, packets.PLAY_STATE]
+    pids = packets.sc.play._pid
     for factory in handler_factories:
       handler = factory(client, connector)
       for name in pids.keys():
@@ -286,7 +286,7 @@ class _McPositioner(util.Messenger):
       self.yaw = content.yaw
       self.pitch = content.pitch
       self.on_ground = content.on_ground
-      ppl = packets.cs_player_position_and_look(
+      self._connector.send_later("player_position_and_look",
         x = self.x,
         feet_y = self.y - 1.62,
         head_y = self.y,
@@ -295,7 +295,6 @@ class _McPositioner(util.Messenger):
         pitch = self.pitch,
         on_ground = self.on_ground,
       )
-      self._connector.send_later(ppl)
     time.sleep(0.05)
     return True
 
@@ -305,9 +304,9 @@ class _McPositioner(util.Messenger):
     else:
       _logger.info("No position update.")
       self.on_ground = True
-      self._connector.send_later(packets.cs_player(
-          on_ground = self.on_ground
-      ))
+      self._connector.send_later("player",
+          on_ground = self.on_ground,
+      )
     time.sleep(0.05)
     return True
 
