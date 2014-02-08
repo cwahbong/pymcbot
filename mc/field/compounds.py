@@ -38,7 +38,10 @@ class Array(LengthType):
 class Multi:
 
   class Unpacked:
-    pass
+
+    def __repr__(self):
+      return str(self.__dict__)
+
 
   def __init__(self, *fields):
     self._fields = fields
