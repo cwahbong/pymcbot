@@ -1,8 +1,10 @@
 import logging
+import zlib
 
 from mc.handler.base import Handler
 from mc.window import v172 as windows
 
+import mc.map
 import mc.net
 
 _logger = logging.getLogger(__name__)
@@ -82,15 +84,92 @@ class Block(Handler):
 
   def __init__(self, client, connector):
     super().__init__(client, connector)
+    self._client.wmap = mc.map.World()
+
+  def _extract_half_byte(self, data, offset, x, y, z, f):
+    for yy in range(y, y + 16):
+      for zz in range(z, z + 16):
+        for xx in range(x, x + 16, 2):
+          m_even, m_odd = data[offset] >> 4, data[offset] & 0xF
+          f(xx, yy, zz, m_even, m_odd)
+          offset += 1
+    return offset
+
+  def _update_by_chunk(self, data, offset, X, Z, primary, add,
+      ground_up, skylight):
+    def column_extract(extractor, offset):
+      x, z = X * 16, Z * 16
+      for Y in range(16):
+        if primary & (1 << Y):
+          y = Y * 16
+          offset = extractor(offset, x, y, z)
+      return offset
+    def byte(updater):
+      def extractor(offset, x, y, z):
+        for yy in range(y, y + 16):
+          for zz in range(z, z + 16):
+            for xx in range(x, x + 16):
+              updater(xx, yy, zz, data[offset])
+              offset += 1
+        return offset
+      return extractor
+    def half_byte(updater):
+      def extractor(offset, x, y, z):
+        for yy in range(y, y + 16):
+          for zz in range(z, z + 16):
+            for xx in range(x, x + 16, 2):
+              m_even, m_odd = data[offset] >> 4, data[offset] & 0xF
+              updater(xx, yy, zz, m_even, m_odd)
+              offset += 1
+        return offset
+      return extractor
+    def block_type(xx, yy, zz, m):
+      self._client.wmap[xx][zz][yy].type = m
+    def block_metadata(xx, yy, zz, m_even, m_odd):
+      self._client.wmap[xx][zz][yy].metadata = m_even
+      self._client.wmap[xx + 1][zz][yy].metadata = m_odd
+    def block_light(xx, yy, zz, m_even, m_odd):
+      self._client.wmap[xx][zz][yy].light = m_even
+      self._client.wmap[xx + 1][zz][yy].light = m_odd
+    def block_sky_light(xx, yy, zz, m_even, m_odd):
+      self._client.wmap[xx][zz][yy].sky_light = m_even
+      self._client.wmap[xx + 1][zz][yy].sky_light = m_odd
+
+    offset = column_extract(byte(block_type), offset)
+    offset = column_extract(half_byte(block_metadata), offset)
+    offset = column_extract(half_byte(block_light), offset)
+    offset = column_extract(half_byte(block_sky_light), offset)
+    # ADD_ARRAY (secondary bitmask)
+    if add > 0:
+      _logger.warning("Add bitmask is not zero but not implemented.")
+      # TODO
+    x, z = X * 16, Z * 16
+    # BIOME (byte per XZ, 16 * 16 = 256 total)
+    for zz in range(z, z + 16):
+      for xx in range(x, x + 16):
+        self._client.wmap[xx][zz].biome = data[offset]
+        offset += 1
+    return offset
+
 
   def chunk_data(self, packet):
-    pass
+    if packet.ground_up_continuous and packet.primary_bit_map == 0:
+      # TODO unload chunk
+      _logger.warning("Unload chunk (not implemented)")
+    else:
+      self._update_by_chunk(data, 0, packet.x, packet.z,
+          packet.primary_bit_map, packet.add_bit_map,
+          ground_up = packet.ground_up_continuous,
+          skylight = True)
 
   def multi_block_change(self, packet):
-    pass
+    _logger.warning("multi_block_change handler not implemented.")
 
   def block_change(self, packet):
-    pass
+    x, y, z = packet.x, packet.y, packet.z
+    block = self._client.wmap[x][z][y]
+    block.type = packet.block_id
+    block.metadata = packet.metadata
 
   def block_action(self, packet):
     pass
@@ -99,7 +178,20 @@ class Block(Handler):
     pass
 
   def map_chunk_bulk(self, packet):
-    pass
+    data = zlib.decompress(bytes(packet.data))
+    p = 0
+    for m in packet.meta:
+      p = self._update_by_chunk(data, p,
+          m.chunk_x, m.chunk_z,
+          m.primary_bitmap,
+          m.add_bitmap,
+          ground_up = True,
+          skylight = packet.sky_light_sent,
+      )
+    if p != len(data):
+      _logger.warning(
+          "Final offset not equal to the length of decompressed data."
+      )
 
   def explosion(self, packet):
     pass
