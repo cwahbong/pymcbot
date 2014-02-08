@@ -75,7 +75,7 @@ def logConfig(filename = None, stream = None):
   logger.setLevel(logging.DEBUG)
   formatter = logging.Formatter(
       "%(asctime)s - %(levelname)s - T\"%(threadName)s\""
-      " - M\"%(module)s\" - %(message)s"
+      " - N\"%(name)s\" - %(message)s"
   )
   if filename is not None:
     fileHandler = logging.FileHandler(filename)
