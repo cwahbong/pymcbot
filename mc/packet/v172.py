@@ -474,7 +474,7 @@ sc.play.register(
         (Short, "chunk_column_count"),
         (Int, "data_length"),
         (Bool, "sky_light_sent"),
-        (Array(Byte, "data_length"),
+        (Array(UnsignedByte, "data_length"),
             "data"),
         (
             Array(
