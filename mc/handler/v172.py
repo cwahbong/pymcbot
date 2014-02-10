@@ -88,31 +88,30 @@ class Block(Handler):
 
   def _update_by_chunk(self, data, offset, X, Z, primary, add,
       ground_up, skylight):
-    def column_extract(extractor, offset):
+    def column_extract(extractor):
       x, z = X * 16, Z * 16
       for Y in range(16):
         if primary & (1 << Y):
           y = Y * 16
-          offset = extractor(offset, x, y, z)
-      return offset
+          extractor(x, y, z)
     def byte(updater):
-      def extractor(offset, x, y, z):
+      def extractor(x, y, z):
+        nonlocal offset
         for yy in range(y, y + 16):
           for zz in range(z, z + 16):
             for xx in range(x, x + 16):
               updater(xx, yy, zz, data[offset])
               offset += 1
-        return offset
       return extractor
     def half_byte(updater):
-      def extractor(offset, x, y, z):
+      def extractor(x, y, z):
+        nonlocal offset
         for yy in range(y, y + 16):
           for zz in range(z, z + 16):
             for xx in range(x, x + 16, 2):
               m_even, m_odd = data[offset] >> 4, data[offset] & 0xF
               updater(xx, yy, zz, m_even, m_odd)
               offset += 1
-        return offset
       return extractor
     def block_type(xx, yy, zz, m):
       self._client.wmap[xx][zz][yy].type = m
@@ -126,10 +125,10 @@ class Block(Handler):
       self._client.wmap[xx][zz][yy].sky_light = m_even
       self._client.wmap[xx + 1][zz][yy].sky_light = m_odd
 
-    offset = column_extract(byte(block_type), offset)
-    offset = column_extract(half_byte(block_metadata), offset)
-    offset = column_extract(half_byte(block_light), offset)
-    offset = column_extract(half_byte(block_sky_light), offset)
+    column_extract(byte(block_type))
+    column_extract(half_byte(block_metadata))
+    column_extract(half_byte(block_light))
+    column_extract(half_byte(block_sky_light))
     # ADD_ARRAY (secondary bitmask)
     if add > 0:
       _logger.warning("Add bitmask is not zero but not implemented.")
