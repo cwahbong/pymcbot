@@ -2,7 +2,7 @@ import logging
 import zlib
 
 from mc.handler.base import Handler
-from mc.window import v172 as windows
+from mc.window import v172 as window
 
 import mc.map
 import mc.net
@@ -201,39 +201,46 @@ class Window(Handler):
 
   def __init__(self, client, connector):
     super().__init__(client, connector)
-    self._client.windows = {
-        0: windows.new_by_type_id(-1)
-    }
-    self._client.window_stack = [0]
+    self._client.windows = window.Windows()
+
+    inventory = window.new_by_type_id(-1, 0)
+    self._client.windows.add(inventory)
 
   def open_window(self, packet):
-    self._client.windows[packet.window_id] = windows.new_by_type_id(packet.inventory_type)
-    self._client.current_window_id.append(packet.window_id)
+    w = window.new_by_type_id(packet.inventory_type, packet.window_id)
+    self._client.windows.add(w)
 
   def close_window(self, packet):
-    del self._client.windows[packet.window_id]
+    self._client.windows.pop(packet.window_id)
 
   def set_slot(self, packet):
-    if packet.window_id == -1:
-      _logger.warning("Negative window id.")
+    if packet.window_id < 0:
+      _logger.warning("Negative window id. {}".format(
+          packet.window_id
+      ))
       return
     if packet.window_id not in self._client.windows:
       _logger.error("Window not initialized, id = {}".format(
           packet.window_id
       ))
       return
-    self._client.windows[packet.window_id].slots[packet.slot] = packet.slot_data
+    self._client.windows.by_id[packet.window_id].slots[packet.slot] = packet.slot_data
 
   def window_items(self, packet):
-    self._client.windows[packet.window_id].slots = list(packet.slot_data)
+    self._client.windows.by_id[packet.window_id].slots = list(packet.slot_data)
 
   def window_property(self, packet):
-    # TODO
-    pass
+    self._client.windows.properties[packet.property] = packet.value
 
   def confirm_transaction(self, packet):
-    # TODO
-    pass
+    if packet.accepted:
+      # TODO
+      # self._client.windows.accepted(packet.action_number)
+      pass
+    else:
+      _logger.info("Transaction refused, action number {}.".format(
+          packet.action_number
+      ))
 
 
 class Entity(Handler):

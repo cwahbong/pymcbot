@@ -321,6 +321,7 @@ class Actions:
   def __init__(self, client):
     self._client = client
     self._connector = client._connector
+    self._next_action_number = 0
 
   def next_position_look(self,
       x = None, y = None, z = None,
@@ -356,16 +357,23 @@ class Actions:
   def mouseup_block(self, x, y, z, direction, right_click = False):
     pass
 
-  def click_window(self, slot, right_click = False):
-    # TODO need implement action number
-    pass
+  def click_window(self, slot, right_click = False, shift = False):
+    self._connector.send_later(
+        window_id = self._client.windows.stack[-1].id,
+        slot = slot,
+        button = int(right_click),
+        action_number = self._next_action_number,
+        mode = int(shift),
+        clicked_item = self._client.windows.stack[-1].slots[slot],
+    )
+    self._next_action_number = (self._next_action_number + 1) % 32767
 
   def close_window(self):
-    self._connector.send_later(packets.cs_close_window(
-      window_id = self._client.window_stack[-1]
-    ))
+    self._connector.send_later("close_window",
+      window_id = self._client.windows.stack[-1].id
+    )
     if len(self._client.window_stack) > 1:
-      self._client.window_stack.pop()
+      self._client.windows.pop()
 
   def drop(self):
     pass
