@@ -86,15 +86,6 @@ class Block(Handler):
     super().__init__(client, connector)
     self._client.wmap = mc.map.World()
 
-  def _extract_half_byte(self, data, offset, x, y, z, f):
-    for yy in range(y, y + 16):
-      for zz in range(z, z + 16):
-        for xx in range(x, x + 16, 2):
-          m_even, m_odd = data[offset] >> 4, data[offset] & 0xF
-          f(xx, yy, zz, m_even, m_odd)
-          offset += 1
-    return offset
-
   def _update_by_chunk(self, data, offset, X, Z, primary, add,
       ground_up, skylight):
     def column_extract(extractor, offset):
