@@ -160,7 +160,7 @@ class Block(Handler):
     x, y, z = packet.x, packet.y, packet.z
     block = self._client.wmap[x][z][y]
     block.type = packet.block_id
-    block.metadata = packet.metadata
+    block.metadata = packet.block_metadata
 
   def block_action(self, packet):
     pass
@@ -194,11 +194,11 @@ class Window(Handler):
     super().__init__(client, connector)
     self._client.windows = window.Windows()
 
-    inventory = window.new_by_type_id(-1, 0)
+    inventory = window.Window(window.SELF, 0)
     self._client.windows.add(inventory)
 
   def open_window(self, packet):
-    w = window.new_by_type_id(packet.inventory_type, packet.window_id)
+    w = window.Window(packet.inventory_type, packet.window_id)
     self._client.windows.add(w)
 
   def close_window(self, packet):

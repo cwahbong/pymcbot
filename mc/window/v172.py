@@ -38,7 +38,7 @@ _layouts = {
         ("armor_feet", (8, 1)),
     ),
     CHEST: (
-        ("chest", (0, -1))
+        ("chest", (0, -1)),
     ),
     WORKBENCH: (
         ("crafting_output", (0, 1)),
@@ -60,14 +60,14 @@ _layouts = {
 
 class Window:
 
-  def __init__(self, wid, wtype):
-    self.id = wid
+  def __init__(self, wtype, wid):
     self.type = wtype
+    self.id = wid
     self.properties = dict()
     self.slots = list()
-    if wid not in layout:
+    if wtype not in _layouts:
       _logger.warning("window")
-    self._slot_d = dict(_layouts[wid])
+    self._slot_d = dict(_layouts[wtype])
     self._slot_d.update(_self_layout)
 
   def slot(self, name, n = 0):
