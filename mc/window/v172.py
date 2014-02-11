@@ -74,4 +74,6 @@ class Window:
     start, limit = self._slot_d[name]
     if n >= limit:
       raise ValueError("limit exceeded")
+    if start < 0:
+      start += len(self.slots)
     return start + n
