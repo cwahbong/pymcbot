@@ -51,8 +51,9 @@ class Slot:
     else:
       result = Short.pack(data["id"])
       result += Byte.pack(data["count"])
-      result += Short.pack(data["meta"])
-      if enchantable(data["id"]):
+      result += Short.pack(data["damage"])
+      result += Short.pack(data["nbt_length"])
+      if data["nbt_length"] != -1:
         raise NotImplementedError
     return result
 
