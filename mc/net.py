@@ -6,6 +6,7 @@ import os
 import queue
 import socket
 import struct
+import threading
 import time
 
 from mc.packet import v172 as packets
@@ -245,7 +246,7 @@ class _McDispatcher(util.Repeater):
       handler = factory(client, connector)
       for name in pids.keys():
         if hasattr(handler, name):
-           self._handlers[pids[name]].append(handler)
+          self._handlers[pids[name]].append(handler)
 
   def _repeated(self):
     packet = self._connector.pop_packet()
@@ -322,6 +323,7 @@ class Actions:
     self._client = client
     self._connector = client._connector
     self._next_action_number = 0
+    self._action = dict()
 
   def next_position_look(self,
       x = None, y = None, z = None,
@@ -357,22 +359,79 @@ class Actions:
   def mouseup_block(self, x, y, z, direction, right_click = False):
     pass
 
-  def click_window(self, slot, right_click = False, shift = False):
-    self._connector.send_later(
-        window_id = self._client.windows.stack[-1].id,
-        slot = slot,
-        button = int(right_click),
+  def _accept_window(self, action_number):
+    action, cv = self._action[action_number]
+    del self._action[action_number]
+    cv.acquire()
+    action()
+    cv.notify()
+    cv.release()
+
+  def click_window(self, slot_name, slot_n = 0, right_click = False, shift = False):
+    def swap():
+      nonlocal window, slot_id
+      thand = self._client.windows.hand
+      self._client.windows.hand = window.slots[slot_id]
+      window.slots[slot_id] = thand
+    def take_half():
+      nonlocal window, slot_id
+      new_slot = dict(window.slots[slot_id])
+      sc = new_slot["count"]
+      sc["count"] = (sc + 1) // 2
+      self._client.windows.hand = new_slot
+      window.slots[slot_id]["count"] = sc // 2
+    def stack(n = -1):
+      def _f():
+        nonlocal window, slot_id
+        if window.slots[slot_id]["count"] == 64:
+          return
+        if n == -1:
+          n = 64 - window.slots[slot_id]["count"]
+        window.slots[slot_id]["count"] += n
+        self._client.windows.hand["count"] -= n
+        if self._client.windows.hand["count"] == 0:
+          self._client.windows.hand = {"id": -1}
+      return _f
+    window = self._client.windows.stack[-1]
+    slot_id = window.slot(slot_name, slot_n)
+    button = int(right_click)
+    mode = int(shift)
+    self._connector.send_later("click_window",
+        window_id = window.id,
+        slot = slot_id,
+        button = button,
         action_number = self._next_action_number,
-        mode = int(shift),
-        clicked_item = self._client.windows.stack[-1].slots[slot],
+        mode = mode,
+        clicked_item = window.slots[slot_id],
     )
+    diff = self._client.windows.hand["id"] != window.slots[slot_id]["id"]
+    empty = self._client.windows.hand["id"] == -1
+    # TODO different items have different max item stack
+    if mode == 0:
+      if button == 0:
+        if diff or empty:
+          later = swap
+        else:
+          later = stack()
+      else:
+        if empty: # take half
+          later = take_half
+        elif diff:
+          later = swap
+        else:
+          later = stack(1)
+    cv = threading.Condition()
+    self._action[self._next_action_number] = (later, cv)
+    cv.acquire()
+    cv.wait()
+    cv.release()
     self._next_action_number = (self._next_action_number + 1) % 32767
 
   def close_window(self):
     self._connector.send_later("close_window",
       window_id = self._client.windows.stack[-1].id
     )
-    if len(self._client.window_stack) > 1:
+    if len(self._client.windows.stack) > 1:
       self._client.windows.pop()
 
   def drop(self):

@@ -205,11 +205,9 @@ class Window(Handler):
 
   def set_slot(self, packet):
     if packet.window_id < 0:
-      _logger.warning("Negative window id. {}".format(
-          packet.window_id
-      ))
+      self._client.windows.hand = packet.slot_data
       return
-    if packet.window_id not in self._client.windows:
+    if packet.window_id not in self._client.windows.by_id:
       _logger.error("Window not initialized, id = {}".format(
           packet.window_id
       ))
@@ -224,13 +222,16 @@ class Window(Handler):
 
   def confirm_transaction(self, packet):
     if packet.accepted:
-      # TODO
-      # self._client.windows.accepted(packet.action_number)
-      pass
+      self._client.actions._accept_window(packet.action_number)
     else:
       _logger.info("Transaction refused, action number {}.".format(
           packet.action_number
       ))
+    self._connector.send_later("confirm_transaction",
+        window_id = packet.window_id,
+        action_number = packet.action_number,
+        accepted = packet.accepted,
+    )
 
 
 class Entity(Handler):
