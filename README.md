@@ -5,7 +5,7 @@ will not support python 2.
 
 
 Supported protocol version
-==========================
+--------------------------
 
 * 1.7.2
 
